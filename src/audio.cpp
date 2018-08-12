@@ -21,24 +21,22 @@ static sample_callback callback;
 static int *interruptFlag;
 
 AVCodecContext* getDecoderFromStream(AVStream* stream) {
- 
-    AVCodecContext* codecCtx = stream->codec;
-
-    codecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
-
-    AVCodec* codec = avcodec_find_decoder(codecCtx->codec_id);
+    AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
 
     if (codec == NULL) {
         std::cout << "Unsupported codec!" << std::endl;
         return NULL;
     }
 
-    AVCodecContext* codecCtxCopy = avcodec_alloc_context3(codec);
-    avcodec_copy_context(codecCtxCopy, codecCtx);
+    AVCodecContext *ctx = avcodec_alloc_context3(codec);
+    
+    ctx->request_sample_fmt = AV_SAMPLE_FMT_S16;
 
-    avcodec_open2(codecCtxCopy, codec, NULL);
+    avcodec_parameters_to_context(ctx, stream->codecpar);
 
-    return codecCtxCopy;
+    avcodec_open2(ctx, codec, NULL);
+
+    return ctx;
 }
 
 int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_size) {
