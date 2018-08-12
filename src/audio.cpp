@@ -16,11 +16,12 @@ extern "C"
 #endif
 
 static PacketQueue audioq;
+static sample_callback callback;
 
 static int *interruptFlag;
 
 AVCodecContext* getDecoderFromStream(AVStream* stream) {
-
+ 
     AVCodecContext* codecCtx = stream->codec;
 
     codecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
@@ -40,7 +41,7 @@ AVCodecContext* getDecoderFromStream(AVStream* stream) {
     return codecCtxCopy;
 }
 
-int audio_decode_frame(AVCodecContext* codecCtx, uint8_t* audio_buf, int buf_size) {
+int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_size) {
     static AVPacket pkt;
   static uint8_t *audio_pkt_data = NULL;
   static int audio_pkt_size = 0;
@@ -51,7 +52,12 @@ int audio_decode_frame(AVCodecContext* codecCtx, uint8_t* audio_buf, int buf_siz
   for(;;) {
     while(audio_pkt_size > 0) {
         int got_frame = 0;
+        
         len1 = avcodec_decode_audio4(codecCtx, &frame, &got_frame, &pkt);
+
+        //avcodec_send_packet(codecCtx, &pkt);
+        //avcodec_receive_frame(codecCtx, &frame);
+
         if (len1 < 0) {
             /* if error, skip frame */ 
     	    audio_pkt_size = 0;
@@ -60,6 +66,7 @@ int audio_decode_frame(AVCodecContext* codecCtx, uint8_t* audio_buf, int buf_siz
         audio_pkt_data += len1;
         audio_pkt_size -= len1;
         data_size = 0;
+
     
         if(got_frame) {
 	        data_size = av_samples_get_buffer_size(NULL, 
@@ -79,7 +86,7 @@ int audio_decode_frame(AVCodecContext* codecCtx, uint8_t* audio_buf, int buf_siz
         return data_size;
     }
     if(pkt.data)
-      av_free_packet(&pkt);
+      av_packet_unref(&pkt);
 
     if(*interruptFlag) {
       return -1;
@@ -122,9 +129,10 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
         stream += len1;
         audio_buf_index += len1;
     }
-
   
     if (len != 0) std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
+
+    callback(streamStart, desiredLen, len);
 }
 
 void setupAudio(AVCodecContext* codecCtx) {
@@ -146,7 +154,7 @@ void setupAudio(AVCodecContext* codecCtx) {
 
 int get_stream_idx(AVFormatContext *s) {  
     for (int i = 0; i < s->nb_streams; ++i) {
-        if (s->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
+        if (s->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             return i;
         }
     }
@@ -161,15 +169,16 @@ static int LoadThread(void *ptr) {
         if (packet.stream_index == idx) {
             packet_queue_put(&audioq, &packet);
         } else {
-            av_free_packet(&packet);
+            av_packet_unref(&packet);
         }
     }
     std::cout << "All packets added to queue" << std::endl;
     return 0;
 }
 
-int audio_play_source(const char *url, int *interrupt) {
+int audio_play_source(const char *url, int *interrupt, sample_callback callbackFunc) {
     interruptFlag = interrupt;
+    callback = callbackFunc;
 
     AVFormatContext* s = NULL;
 

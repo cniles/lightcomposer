@@ -30,7 +30,7 @@ int pixel_queue_get(PixelQueue * q, Pixel pixels[], int size) {
     return ret;
 }
 
-int pixel_queue_put(PixelQueue* q, int val) {
+int pixel_queue_put(PixelQueue* q, Uint16 val) {
     SDL_LockMutex(q->mutex);
     
     Pixel *pixel0 = new Pixel();

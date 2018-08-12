@@ -29,7 +29,7 @@ int16_t max(int16_t a, int16_t b) {
 }
 
 void pixel_callback(Uint8 *stream, int desiredLen, int len) {
-    int pixel_count = 512;
+    int pixel_count = 16;
 
     int pixels[pixel_count];
 
@@ -57,6 +57,10 @@ void init_libs() {
     }
 }
 
+const Uint16 SCREEN_W = 640;
+const Uint16 SCREEN_H = 480;
+const Uint16 ZERO = 0;
+
 int main(int, char**)
 {
     SDL_Surface* screen = NULL;
@@ -75,9 +79,9 @@ int main(int, char**)
         screen->format->Amask);
 
     const char* url = "file:killcaustic.mp3";
-    audio_play_source(url, (int*)&quit);
+    audio_play_source(url, (int*)&quit, pixel_callback);
 
-    int offset = 0;
+    Uint16 offset = 0;
 
     pixel_queue_init(&drawq);
 
@@ -94,18 +98,20 @@ int main(int, char**)
                 offset++;
                 if (offset >= 640) offset = 0;
                 lineColor(gfx, offset, 0, offset, 480, 0x000000FF);
-                lineColor(gfx, offset, 240, offset, 240+volume, 0xFFFFFFFF);
+                lineColor(gfx, offset, 240-volume, offset, 240+volume, 0xFFFFFFFF);
             }
         }
 
-        SDL_Rect source_left = {0, 0, offset, 480};
-        SDL_Rect source_right = {offset, 0, 640-offset, 480};
-        SDL_Rect dest_left = {640-offset, 0, offset, 480};
-        SDL_Rect dest_right = {0, 0, 640-offset, 480};
+        SDL_Rect source_left = {0, 0, offset, SCREEN_H};
+        SDL_Rect source_right = {(Sint16)offset, 0, (Uint16)(SCREEN_W - offset), SCREEN_H};
+        SDL_Rect dest_left = {(Sint16)(640-offset), 0, offset, SCREEN_H};
+        SDL_Rect dest_right = {0, 0, (Uint16)(SCREEN_W - offset), SCREEN_H};
         SDL_BlitSurface(gfx, &source_left, screen, &dest_left);
         SDL_BlitSurface(gfx, &source_right, screen, &dest_right);
+
         SDL_Flip(screen);           
 
+        SDL_PollEvent(&event);
         switch (event.type) {
         case SDL_QUIT:
             quit = 1;

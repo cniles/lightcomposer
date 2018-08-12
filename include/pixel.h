@@ -9,7 +9,7 @@ extern "C"
 #endif
 
 struct Pixel {
-   int value;
+   Uint16 value;
    Pixel* next;
 };
 
@@ -22,6 +22,6 @@ struct PixelQueue {
 
 void pixel_queue_init(PixelQueue* q);
 int pixel_queue_get(PixelQueue * q, Pixel pixels[], int size);
-int pixel_queue_put(PixelQueue* q, int val);
+int pixel_queue_put(PixelQueue* q, Uint16 val);
 
 #endif
