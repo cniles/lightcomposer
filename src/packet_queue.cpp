@@ -8,16 +8,15 @@ void packet_queue_init(PacketQueue *q) {
 
 int packet_queue_put(PacketQueue *q, AVPacket *pkt) {
     AVPacketList *pkt1;
-    
-    if (av_dup_packet(pkt) < 0) {
-        return -1;
-    }
+       
     pkt1 = (AVPacketList*)av_malloc(sizeof(AVPacketList));
     if (!pkt1) {
         return -1;
     }
     pkt1->pkt = *pkt;
     pkt1->next = NULL;
+
+    av_packet_ref(&pkt1->pkt, pkt);
 
     SDL_LockMutex(q->mutex);
 

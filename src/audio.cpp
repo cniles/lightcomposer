@@ -20,7 +20,7 @@ static sample_callback callback;
 
 static int *interruptFlag;
 
-AVCodecContext* getDecoderFromStream(AVStream* stream) {
+AVCodecContext* get_decoder_for_stream(AVStream* stream) {
     AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
 
     if (codec == NULL) {
@@ -29,11 +29,9 @@ AVCodecContext* getDecoderFromStream(AVStream* stream) {
     }
 
     AVCodecContext *ctx = avcodec_alloc_context3(codec);
-    
-    ctx->request_sample_fmt = AV_SAMPLE_FMT_S16;
-
     avcodec_parameters_to_context(ctx, stream->codecpar);
-
+    // SDL is expecting S16 samples
+    ctx->request_sample_fmt = AV_SAMPLE_FMT_S16;
     avcodec_open2(ctx, codec, NULL);
 
     return ctx;
@@ -108,11 +106,12 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
     callback(streamStart, desiredLen, len);
 }
 
-void setupAudio(AVCodecContext* codecCtx) {
+void setup_sdl_audio(AVCodecContext* codecCtx) {
     SDL_AudioSpec desiredSpec;
     SDL_AudioSpec actualSpec;
+
     desiredSpec.freq = codecCtx->sample_rate;
-    desiredSpec.format = AUDIO_S16SYS;
+    desiredSpec.format = AUDIO_S16;
     desiredSpec.channels = codecCtx->channels;
     desiredSpec.silence = 0;
     desiredSpec.samples = 1024;
@@ -171,10 +170,10 @@ int audio_play_source(const char *url, int *interrupt, sample_callback callbackF
         return -1;
     }
 
-    AVCodecContext* codecCtx = getDecoderFromStream(s->streams[streamIdx]);
+    AVCodecContext* codecCtx = get_decoder_for_stream(s->streams[streamIdx]);
 
     std::cout << "Setting up audio" << std::endl;
-    setupAudio(codecCtx);
+    setup_sdl_audio(codecCtx);
 
     std::cout << "Starting audio queue" << std::endl;
     packet_queue_init(&audioq);
