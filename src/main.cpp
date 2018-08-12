@@ -14,150 +14,11 @@ extern "C"
 #endif
 
 #include <unistd.h>
-
-
-
-struct PacketQueue {
-    AVPacketList *first_pkt, *last_pkt;
-    int nb_packets;
-    int size;
-    SDL_mutex *mutex;
-    SDL_cond *cond;
-};
-
-struct Pixel {
-   int value;
-   Pixel* next;
-};
-
-struct PixelQueue {
-    Pixel *first_pixel, *last_pixel;
-    int size;
-    SDL_mutex *mutex;
-    SDL_cond *cond;
-};
+#include "packet_queue.h"
+#include "pixel.h"
 
 PacketQueue audioq;
 PixelQueue drawq;
-
-void packet_queue_init(PacketQueue *q) {
-    memset(q, 0, sizeof(PacketQueue));
-    q->mutex = SDL_CreateMutex();
-    q->cond = SDL_CreateCond();
-}
-
-void pixel_queue_init(PixelQueue* q) {
-    memset(q, 0, sizeof(PacketQueue));
-    q->mutex = SDL_CreateMutex();
-    q->cond = SDL_CreateCond();
-}
-
-int pixel_queue_get(PixelQueue * q, Pixel pixels[], int size) {
-    int ret = 0;
-    SDL_LockMutex(q->mutex);
-    int dropped = 0;
-    while (dropped < size && q->first_pixel != NULL) {
-        Pixel *pixel = &pixels[dropped];
-        if (q->first_pixel != NULL) {
-            Pixel *pixel0 = q->first_pixel;
-            *pixel = *pixel0;
-            q->first_pixel = pixel->next;
-            if (pixel->next == NULL) {
-                q->last_pixel = NULL;
-            }
-            q->size--;
-            dropped++;
-            delete pixel0;
-            ret = 1;
-        }
-    }
-    SDL_UnlockMutex(q->mutex);
-
-    return ret;
-}
-
-int pixel_queue_put(PixelQueue* q, int val) {
-    SDL_LockMutex(q->mutex);
-    
-    Pixel *pixel0 = new Pixel();
-
-    pixel0->next = NULL;
-    pixel0->value = val;
-
-    if (q->last_pixel == NULL) {
-        q->first_pixel = pixel0;
-    } else {
-        q->last_pixel->next = pixel0;
-    }
-    q->last_pixel = pixel0;
-    q->size++;
-    SDL_UnlockMutex(q->mutex);
-    return 0;
-}
-
-int packet_queue_put(PacketQueue *q, AVPacket *pkt) {
-    AVPacketList *pkt1;
-    if (av_dup_packet(pkt) < 0) {
-        return -1;
-    }
-    pkt1 = (AVPacketList*)av_malloc(sizeof(AVPacketList));
-    if (!pkt1) {
-        return -1;
-    }
-    pkt1->pkt = *pkt;
-    pkt1->next = NULL;
-
-    SDL_LockMutex(q->mutex);
-
-    if (!q->last_pkt)
-        q->first_pkt = pkt1;
-    else
-        q->last_pkt->next = pkt1;
-    q->last_pkt = pkt1;
-    q->nb_packets++;
-    q->size += pkt1->pkt.size;
-    SDL_CondSignal(q->cond);
-
-    SDL_UnlockMutex(q->mutex);
-    return 0;    
-}
-
-int quit = 0;
-
-static int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block) {
-    AVPacketList *pkt1;
-    int ret;
-
-    SDL_LockMutex(q->mutex);
-
-    for(;;) {
-        if (quit) {
-            ret = -1;
-            break;
-        }
-        pkt1 = q->first_pkt;
-
-        if (pkt1) {
-            q->first_pkt = pkt1->next;
-            if (!q->first_pkt) {
-                q->last_pkt = NULL;
-            }
-            q->nb_packets--;
-            q->size -= pkt1->pkt.size;
-            *pkt = pkt1->pkt;
-            av_free(pkt1);
-            ret = 1;
-            break;
-        } else if (!block) {
-            ret = 0;
-            break;
-        } else {
-            SDL_CondWait(q->cond, q->mutex);
-        }
-    }
-    SDL_UnlockMutex(q->mutex);
-    return ret;
-}
 
 AVCodecContext* getDecoderFromStream(AVStream* stream) {
 
@@ -179,6 +40,8 @@ AVCodecContext* getDecoderFromStream(AVStream* stream) {
 
     return codecCtxCopy;
 }
+
+int quit = 0;
 
 int audio_decode_frame(AVCodecContext* codecCtx, uint8_t* audio_buf, int buf_size) {
     static AVPacket pkt;
@@ -225,7 +88,7 @@ int audio_decode_frame(AVCodecContext* codecCtx, uint8_t* audio_buf, int buf_siz
       return -1;
     }
 
-    if(packet_queue_get(&audioq, &pkt, 1) < 0) {
+    if(packet_queue_get(&audioq, &pkt, 1, &quit) < 0) {
       return -1;
     }
     audio_pkt_data = pkt.data;
@@ -338,7 +201,7 @@ int main(int, char**)
         screen->format->Amask);
 
     AVFormatContext* s = NULL;
-    const char* url = "file:stinkfist.flac";
+    const char* url = "file:killcaustic.mp3";
     if (avformat_open_input(&s, url, NULL, NULL) != 0) {
         return -1;        
     }
