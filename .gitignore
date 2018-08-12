@@ -1,4 +1,17 @@
 *~
 \#*\#
-build
+./build
 .vscode
+
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+install_manifest.txt
+compile_commands.json
+git add .giti   
+*.cmake
+DartConfiguration.tcl
+
+HelloWorld
