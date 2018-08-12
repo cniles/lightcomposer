@@ -43,46 +43,19 @@ AVCodecContext* getDecoderFromStream(AVStream* stream) {
 
 int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_size) {
     static AVPacket pkt;
-  static uint8_t *audio_pkt_data = NULL;
-  static int audio_pkt_size = 0;
-  static AVFrame frame;
+    static AVFrame frame;
 
-  int len1, data_size = 0;
+    int len1, data_size = 0;
 
   for(;;) {
-    while(audio_pkt_size > 0) {
-        int got_frame = 0;
-        
-        len1 = avcodec_decode_audio4(codecCtx, &frame, &got_frame, &pkt);
-
-        //avcodec_send_packet(codecCtx, &pkt);
-        //avcodec_receive_frame(codecCtx, &frame);
-
-        if (len1 < 0) {
-            /* if error, skip frame */ 
-    	    audio_pkt_size = 0;
-    	    break;
-        }
-        audio_pkt_data += len1;
-        audio_pkt_size -= len1;
-        data_size = 0;
-
-    
-        if(got_frame) {
-	        data_size = av_samples_get_buffer_size(NULL, 
-                codecCtx->channels,
-                frame.nb_samples,
-                codecCtx->sample_fmt,
-                1);
-
-	        assert(data_size <= buf_size);
-	        memcpy(audio_buf, frame.data[0], data_size);
-        }
-        if(data_size <= 0) {
-	        /* No data yet, get more frames */
-	        continue;
-        }
-        /* We have data, return it and come back for more later */
+    if(avcodec_receive_frame(codecCtx, &frame) == 0) {       
+        data_size = av_samples_get_buffer_size(NULL, 
+            codecCtx->channels,
+            frame.nb_samples,
+            codecCtx->sample_fmt,
+            1);
+        assert(data_size <= buf_size);
+        memcpy(audio_buf, frame.data[0], data_size);
         return data_size;
     }
     if(pkt.data)
@@ -95,9 +68,11 @@ int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_siz
     if(packet_queue_get(&audioq, &pkt, 1, interruptFlag) < 0) {
       return -1;
     }
-    audio_pkt_data = pkt.data;
-    audio_pkt_size = pkt.size;
-  }
+
+    int send_result = avcodec_send_packet(codecCtx, &pkt);
+    if (send_result < 0 && send_result != AVERROR(EAGAIN))
+        return -1;
+    }
 }
 
 void audioCallback(void *userdata, Uint8 *stream, int len) {
