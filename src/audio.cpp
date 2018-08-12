@@ -171,18 +171,11 @@ int audio_play_source(const char *url, int *interrupt, sample_callback callbackF
     }
 
     AVCodecContext* codecCtx = get_decoder_for_stream(s->streams[streamIdx]);
-
-    std::cout << "Setting up audio" << std::endl;
     setup_sdl_audio(codecCtx);
 
-    std::cout << "Starting audio queue" << std::endl;
     packet_queue_init(&audioq);
-    
-    std::cout << "Starting SDL audio" << std::endl;
+
     SDL_PauseAudio(0);
-
-    std::cout << "Playing audio" << std::endl;
-
     SDL_CreateThread(LoadThread, (void*)s);
 
     return 0;
