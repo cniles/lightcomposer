@@ -111,7 +111,7 @@ void setup_sdl_audio(AVCodecContext* codecCtx) {
     SDL_AudioSpec actualSpec;
 
     desiredSpec.freq = codecCtx->sample_rate;
-    desiredSpec.format = AUDIO_S16;
+    desiredSpec.format = AUDIO_U16;
     desiredSpec.channels = codecCtx->channels;
     desiredSpec.silence = 0;
     desiredSpec.samples = 1024;
