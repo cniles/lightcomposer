@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C"
 {
-    #include <SDL/SDL.h>
+    #include <SDL.h>
 }
 #endif
 

@@ -5,7 +5,7 @@
 extern "C"
 {
     #include <libavformat/avformat.h>
-    #include <SDL/SDL.h>
+    #include <SDL.h>
 }
 #endif
 

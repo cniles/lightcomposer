@@ -10,8 +10,6 @@ extern "C"
     #include <libavformat/avformat.h>
     #include <libavutil/avutil.h>
     #include <libavcodec/avcodec.h>
-    #include <SDL/SDL.h>
-    #include <SDL/SDL_gfxPrimitives.h>
 }
 #endif
 
@@ -31,7 +29,7 @@ AVCodecContext* get_decoder_for_stream(AVStream* stream) {
     AVCodecContext *ctx = avcodec_alloc_context3(codec);
     avcodec_parameters_to_context(ctx, stream->codecpar);
     // SDL is expecting S16 samples
-    ctx->request_sample_fmt = AV_SAMPLE_FMT_S16;
+    ctx->request_sample_fmt = AV_SAMPLE_FMT_FLT;
     avcodec_open2(ctx, codec, NULL);
 
     return ctx;
@@ -103,7 +101,7 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
   
     if (len != 0) std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
 
-    callback(streamStart, desiredLen, len);
+    //callback(streamStart, desiredLen, len);
 }
 
 void setup_sdl_audio(AVCodecContext* codecCtx) {
@@ -111,13 +109,14 @@ void setup_sdl_audio(AVCodecContext* codecCtx) {
     SDL_AudioSpec actualSpec;
 
     desiredSpec.freq = codecCtx->sample_rate;
-    desiredSpec.format = AUDIO_U16;
+    desiredSpec.format = AUDIO_F32;
     desiredSpec.channels = codecCtx->channels;
     desiredSpec.silence = 0;
     desiredSpec.samples = 1024;
     desiredSpec.callback = audioCallback;
     desiredSpec.userdata = codecCtx;
 
+    std::cout << "Opening SDL audio" << std::endl;
     if (SDL_OpenAudio(&desiredSpec, &actualSpec) < 0) {
         std::cout << "SDL_OpenAudio: " << SDL_GetError() << std::endl;
         abort();
@@ -176,7 +175,7 @@ int audio_play_source(const char *url, int *interrupt, sample_callback callbackF
     packet_queue_init(&audioq);
 
     SDL_PauseAudio(0);
-    SDL_CreateThread(LoadThread, (void*)s);
+    SDL_CreateThread(LoadThread, "AudioFileLoadThread", (void*)s);
 
     return 0;
 }
