@@ -15,8 +15,21 @@ extern "C"
 
 static PacketQueue audioq;
 static sample_callback callback;
-
 static int *interruptFlag;
+
+#define SDL_AUDIO_BUFFER_SIZE 1024
+
+#define FMT_16
+
+#ifdef FMT_16
+#define AV_FORMAT AV_SAMPLE_FMT_S16
+#define SDL_FORMAT AUDIO_S16
+#endif
+
+#ifdef FMT_FLT
+#define AV_FORMAT AV_SAMPLE_FMT_FLT
+#define SDL_FORMAT AUDIO_F32
+#endif
 
 AVCodecContext* get_decoder_for_stream(AVStream* stream) {
     AVCodec* codec = avcodec_find_decoder(stream->codecpar->codec_id);
@@ -28,8 +41,7 @@ AVCodecContext* get_decoder_for_stream(AVStream* stream) {
 
     AVCodecContext *ctx = avcodec_alloc_context3(codec);
     avcodec_parameters_to_context(ctx, stream->codecpar);
-    // SDL is expecting S16 samples
-    ctx->request_sample_fmt = AV_SAMPLE_FMT_FLT;
+    ctx->request_sample_fmt = AV_FORMAT;
     avcodec_open2(ctx, codec, NULL);
 
     return ctx;
@@ -66,7 +78,7 @@ int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_siz
     int send_result = avcodec_send_packet(codecCtx, &pkt);
     if (send_result < 0 && send_result != AVERROR(EAGAIN))
         return -1;
-    }
+  }
 }
 
 void audioCallback(void *userdata, Uint8 *stream, int len) {
@@ -83,7 +95,7 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
         if (audio_buf_index >= audio_buf_size) {
             audio_size = audio_decode_frame(codecCtx, audio_buf, sizeof(audio_buf));
             if (audio_size < 0) {
-                audio_buf_size = 1024;
+                audio_buf_size = SDL_AUDIO_BUFFER_SIZE;
                 memset(audio_buf, 0, audio_buf_size);
             } else {
                 audio_buf_size = audio_size;
@@ -101,7 +113,7 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
   
     if (len != 0) std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
 
-    //callback(streamStart, desiredLen, len);
+    callback(streamStart, desiredLen, len);
 }
 
 void setup_sdl_audio(AVCodecContext* codecCtx) {
@@ -109,10 +121,10 @@ void setup_sdl_audio(AVCodecContext* codecCtx) {
     SDL_AudioSpec actualSpec;
 
     desiredSpec.freq = codecCtx->sample_rate;
-    desiredSpec.format = AUDIO_F32;
+    desiredSpec.format = SDL_FORMAT;
     desiredSpec.channels = codecCtx->channels;
     desiredSpec.silence = 0;
-    desiredSpec.samples = 1024;
+    desiredSpec.samples = SDL_AUDIO_BUFFER_SIZE;
     desiredSpec.callback = audioCallback;
     desiredSpec.userdata = codecCtx;
 

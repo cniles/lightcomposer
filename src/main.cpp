@@ -1,6 +1,7 @@
 #include <iostream>
 #include <math.h>
 #include <algorithm>
+#include <SDL2_gfxPrimitives.h>
 
 // Need this for CPlusPlus development with this C library
 #ifdef __cplusplus
@@ -16,13 +17,14 @@ extern "C"
 #include <fftw3.h>
 #include <boost/lockfree/queue.hpp>
 
-const char* url = "file:ukulele.mp3";
+const char* url = "file:Peanuts-Theme.mp3";
 
 const int FFT_SAMPLE_SIZE = 4096.0;
 const Uint16 SCREEN_W = 1024;
 const Uint16 SCREEN_H = 768;
 const Uint16 ZERO = 0;
 
+#define LIGHTS 8
 
 struct sampleset {
     int size;
@@ -30,7 +32,7 @@ struct sampleset {
 
     sampleset(int capacity) {
         size = capacity;
-        data = new double[size];
+        data = (double*)malloc(sizeof(double) * capacity);
     }
 
     sampleset(const sampleset &o) {
@@ -39,7 +41,7 @@ struct sampleset {
     }
 
     ~sampleset() {
-        delete[] data;
+        free(data);
     }
 
 };
@@ -58,15 +60,16 @@ void fftw_init() {
 }
 
 void pixel_callback(Uint8 *stream, int desiredLen, int len) {
-    sampleset *sample = new sampleset(512);
+    sampleset *sample = new sampleset((desiredLen + len) / 4);
     for (int i = 0; i < desiredLen + len; i+=4) {
+        if (i+2 >= desiredLen + len) continue;
         int16_t l_sample = *(int16_t *)&stream[i];
         int16_t r_sample = *(int16_t *)&stream[i+2];
         int16_t mono = (int(l_sample) + r_sample) >> 1;
-        //sample->data[i / 4] = (double)mono;
+        if (i < sample->size) continue;
+        sample->data[i / 4] = (double)mono;
     }
-    delete sample;
-    //samples.push(sample);
+    samples.push(sample);
 }
 
 void init_libs() {
@@ -88,24 +91,23 @@ int main(int, char**) {
     SDL_Window *screen = SDL_CreateWindow("LightComposer",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        640, 480,
+        SCREEN_W, SCREEN_H,
         SDL_WINDOW_SHOWN);
+
+    SDL_Renderer *renderer = SDL_CreateRenderer(screen, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     std ::cout << "Creating surfaces" << std::endl;
 
     std::cout << "Starting audio" << std::endl;
-    audio_play_source(url, (int*)&quit, pixel_callback);
+    audio_play_source(url, (int*)&quit, pixel_callback); 
 
     Uint16 offset = 0;
-    int x = 0;
-
     int fft_in_idx = 0;
         
     while (!quit) {
 
-        bool draw = false;
         sampleset *sample;
-        while (samples.pop(sample)) {
+        while (fft_in_idx < FFT_SAMPLE_SIZE && samples.pop(sample)) {
             if (fft_in_idx < FFT_SAMPLE_SIZE) {
                 int size = std::min(sample->size, FFT_SAMPLE_SIZE - fft_in_idx);
                 for (int i = 0; i < size; ++i) {
@@ -117,34 +119,97 @@ int main(int, char**) {
             }
             delete sample;
         }
-
         
         if (fft_in_idx >= FFT_SAMPLE_SIZE) {
+            SDL_RenderClear(renderer);
+            bool draw = false;
             fft_in_idx = 0;
             fftw_execute(p);
-            //SDL_Rect fill = {0, 0, SCREEN_W, SCREEN_H};
-            //SDL_FillRect(spectrogram, &fill, 0xFF000000);
 
-            double c0 = 16.35;
-            for (int i = 0; i < 20; ++i) {
-                int freq = pow(2.0, i) * c0;          
-                int x = freq / 11025.0 * 1024.0;
-                std::cout << x << std::endl;
-                //lineColor(screen, x, 0, x, SCREEN_H, 0x00FF00FF);
-            }
+            int lights[LIGHTS];
 
-            for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
-                if (i > SCREEN_W) break;
-                float vol =(sqrt(out[i][0]*out[i][0] + out[i][1]*out[i][1])) / 5012.0;
-                //lineColor(spectrogram, i, SCREEN_H, i, SCREEN_H-vol, 0xFF0000FF);
-            }
-            x++;
-            if (x >= SCREEN_W) x = 0; 
+            memset(lights, 0, sizeof(lights));
             
-            //SDL_BlitSurface(spectrogram, &fill, screen, &fill);
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+            SDL_Rect fill = {0, 0, SCREEN_W, SCREEN_H};
+            SDL_RenderFillRect(renderer, &fill);
+
+            double c0 = 16.35;            
+
+            double power[FFT_SAMPLE_SIZE >> 1];
+            double freqs[FFT_SAMPLE_SIZE >> 1];
+            double bands[10];
+
+            memset(bands, 0, sizeof(bands));
+            
+            int b = 0;
+            int band_bin_counter = 0;
+            int b_freq = c0;
+            double total = 0.0;
+            for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
+                freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
+                if (b_freq < freqs[i]) {
+                    bands[b] /= (double)band_bin_counter;
+                    b++;
+                    b_freq = pow(2.0, b) * c0;
+                    band_bin_counter = 0;
+                }
+                power[i] = sqrt(out[i][0]*out[i][0] + out[i][1]*out[i][1]);
+                bands[b] += power[i];
+                band_bin_counter++;
+                total += power[i];
+            }
+            total /= (FFT_SAMPLE_SIZE / 2.0);
+
+            // Draw octave
+            SDL_SetRenderDrawColor(renderer, 0xFF, 0, 0, SDL_ALPHA_OPAQUE);
+            for (int i = 0; i < 10; ++i) {
+                int freq = pow(2.0, i) * c0;
+                int x = log2(freq) / 26.0 * SCREEN_W;
+                SDL_RenderDrawLine(renderer, x, 0, x, SCREEN_H);
+            }
+
+            b = 0;
+            b_freq = c0;
+            double s = 30.0;
+            for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
+
+                if (b_freq < freqs[i]) {
+                    b_freq = pow(2.0, b) * c0;
+                    b++;
+                }
+
+                if (i > SCREEN_W) break;
+
+                double q = bands[b];
+              
+                double r = std::min(s, power[i] / q) / s;
+
+                int vol = power[i] / 10000;
+
+                int o = (int)(log2(freqs[i] / c0) * 12) % LIGHTS;
+
+                double x = log2(freqs[i]) / 26.0 * SCREEN_W;
+
+                if (r > 0.5) {
+                    lights[o] = 1;
+                }
+
+                SDL_SetRenderDrawColor(renderer, 0, 0xFF * (1.0 - r), 0xFF*r, SDL_ALPHA_OPAQUE);
+                SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H-vol);
+            }
+
+            for (int i = 0; i < LIGHTS; ++i) {
+                if (lights[i]) {
+                    filledCircleColor(renderer, 50+50*i, 50, 20, 0xFFFFFFFF);
+                } else {
+                    filledCircleColor(renderer, 50+50*i, 50, 20, 0xAAAAAAFF);
+                }
+            }
+            
+            SDL_RenderPresent(renderer);
         }
 
-        //SDL_Flip(screen);           
 
         SDL_PollEvent(&event);
         switch (event.type) {

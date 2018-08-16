@@ -6,17 +6,17 @@ enable_testing()
 
 #set(CMAKE_CXX_STANDARD 11)
 
-set(CMAKE_CXX_FLAGS "-I/usr/local/include/SDL2 -D_GNU_SOURCE=1 -D_THREAD_SAFE -Wl,-framework,Cocoa")
-
-
 include_directories(include)
 
-find_package(SDL)
+find_package(SDL2 REQUIRED)
+include_directories(${SDL2_INCLUDE_DIRS})
+
+
 
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(lightcompose ${SOURCES})
-target_link_libraries(lightcompose avformat avutil avcodec fftw3 z m SDLmain SDL2 SDL_gfx)
+target_link_libraries(lightcompose avformat avutil avcodec fftw3 z m ${SDL2_LIBRARIES} SDL2_gfx)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
