@@ -17,7 +17,7 @@ extern "C"
 #include <fftw3.h>
 #include <boost/lockfree/queue.hpp>
 
-const char* url = "file:Peanuts-Theme.mp3";
+const char* url = "file:sail.mp3";
 
 const int FFT_SAMPLE_SIZE = 4096.0;
 const Uint16 SCREEN_W = 1024;
@@ -191,7 +191,7 @@ int main(int, char**) {
 
                 double x = log2(freqs[i]) / 26.0 * SCREEN_W;
 
-                if (r > 0.5) {
+                if (r > 0.4) {
                     lights[o] = 1;
                 }
 
