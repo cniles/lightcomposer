@@ -17,8 +17,6 @@ extern "C"
 #include <fftw3.h>
 #include <boost/lockfree/queue.hpp>
 
-const char* url = "file:sail.mp3";
-
 const int FFT_SAMPLE_SIZE = 4096.0;
 const Uint16 SCREEN_W = 1024;
 const Uint16 SCREEN_H = 768;
@@ -66,7 +64,7 @@ void pixel_callback(Uint8 *stream, int desiredLen, int len) {
         int16_t l_sample = *(int16_t *)&stream[i];
         int16_t r_sample = *(int16_t *)&stream[i+2];
         int16_t mono = (int(l_sample) + r_sample) >> 1;
-        if (i < sample->size) continue;
+        if ((i / 4) > sample->size) continue;
         sample->data[i / 4] = (double)mono;
     }
     samples.push(sample);
@@ -79,8 +77,12 @@ void init_libs() {
     }
 }
 
-int main(int, char**) {
+int main(int argc, char** argv) {
     SDL_Event event;
+
+    const char *url = argv[1];
+
+    std::cout << "Playing file " << url << std::endl;
 
     std::cout << "Starting fftw" << std::endl;
     fftw_init();
@@ -191,7 +193,7 @@ int main(int, char**) {
 
                 double x = log2(freqs[i]) / 26.0 * SCREEN_W;
 
-                if (r > 0.4) {
+                if (r > 0.6) {
                     lights[o] = 1;
                 }
 
