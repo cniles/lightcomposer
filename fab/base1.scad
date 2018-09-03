@@ -98,15 +98,20 @@ translate([1.75+.25 + 2+15/16 - 3/16,1/16 + 2+4/16 - .25,1/16]) { spacer(); }
 
 // bottom portion
 
-translate([-5,0,0]) difference() {
-union() { 
-
-translate([9,0,0]) scale([4/5,1,1]) rotate([0,0,90]) wall();
-translate([0,5,0]) mirror([0,1,0]) translate([9,0,0]) scale([4/5,1,1]) rotate([0,0,90]) wall();
-translate([9,0,0]) mirror([1,0,0]) wall();
-
-
-
+// walls and bottom
+difference() {
+    union() {
+        translate([9,0,0]) scale([4/5,1,1]) rotate([0,0,90]) wall();
+        translate([0,5,0]) mirror([0,1,0]) translate([9,0,0]) scale([4/5,1,1]) rotate([0,0,90]) wall();
+        translate([9,0,0]) mirror([1,0,0]) wall();
+        difference() { 
+            translate([5,0,0]) cube([4,5,thickness]);
+            translate([5.75,.5,thickness*-.5]) cube([2.75,4,thickness*2]);
+            translate([5.5,.5,thickness*-.5]) cube([1,2,thickness*2]);   
+        }
+    }   
+    translate([8.4,1.75,-.5]) cube([1,1/8,1]);
+}
 // right side fastener
 translate([4.75,4.75-1/16,7/8]) {
     difference() {
@@ -114,12 +119,6 @@ translate([4.75,4.75-1/16,7/8]) {
         translate([.5,-.154,-.01]) rotate([0,-90,0])  scale([1,.4,1]) tri2();
         rotate([-90,-90,0]) scale([1,.25,1]) tri2();
     }
-}
-
-difference() { 
-    translate([5,0,0]) cube([4,5,thickness]);
-    translate([5.75,.5,thickness*-.5]) cube([2.75,4,thickness*2]);
-    translate([5.5,.5,thickness*-.5]) cube([1,2,thickness*2]);   
 }
 
 // pi power socket housing
@@ -153,5 +152,4 @@ translate([5,0.0]) cube([.25,.25,3+7/8]);
 translate([0,5-(2+5/16),0]) {
 translate([5.5,1/16,1/16]) { spacer(); }
 translate([5.5,2+1/16,1/16]) { spacer(); }
-}}
-    translate([8,1.9,-1]) cube([2,1/8,2]);}
+}
