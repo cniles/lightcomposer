@@ -16,7 +16,7 @@ include_directories(${SDL2_INCLUDE_DIRS})
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(lightcompose ${SOURCES})
-target_link_libraries(lightcompose avformat avutil avcodec fftw3 z m ${SDL2_LIBRARIES} SDL2_gfx)
+target_link_libraries(lightcompose avformat avutil avcodec fftw3 z m ${SDL2_LIBRARIES} wiringPi)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
