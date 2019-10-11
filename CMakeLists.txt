@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(lightcomposer VERSION 0.0.0)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules)
+
 include(CTest)
 enable_testing()
 
@@ -9,14 +11,26 @@ enable_testing()
 include_directories(include)
 
 find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIRS})
+include_directories(lightcomposer ${SDL2_INCLUDE_DIRS})
 
+find_package(SDL2_gfx REQUIRED)
+include_directories(lightcomposer ${SDL2_GFX_INCLUDE_DIRS})
+
+find_package(Boost REQUIRED)
+include_directories(lightcomposer ${BOOST_INCLUDE_DIRS})
+
+find_package(LIBAV REQUIRED)
+include_directories(lightcomposer ${LIBAV_INCLUDE_DIRS})
+
+find_package(FFTW REQUIRED)
+include_directories(lightcomposer ${FFTW_INCLUDE_DIRS})
 
 
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(lightcompose ${SOURCES})
-target_link_libraries(lightcompose avformat avutil avcodec fftw3 z m ${SDL2_LIBRARIES} wiringPi)
+
+target_link_libraries(lightcompose ${LIBAV_LIBRARIES} ${FFTW_LIBRARIES} z m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES})
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
