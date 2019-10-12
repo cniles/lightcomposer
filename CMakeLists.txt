@@ -27,6 +27,12 @@ include_directories(lightcomposer ${FFTW_INCLUDE_DIRS})
 
 find_library(WIRINGPI_LIBRARY wiringPi)
 
+if (WIRINGPI_LIBRARY STREQUAL "WIRINGPI_LIBRARY-NOTFOUND")
+    set(WIRINGPI_LIBRARY "")
+else()
+    add_definitions(-DWIRINGPI)
+endif()
+
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(lightcompose ${SOURCES})

@@ -1,7 +1,10 @@
 #include <iostream>
 #include <math.h>
 #include <algorithm>
+
+#ifdef WIRINGPI
 #include <wiringPi.h>
+#endif
 
 // Need this for CPlusPlus development with this C library
 #ifdef __cplusplus
@@ -110,6 +113,7 @@ void init_libs() {
 
 int main(int argc, char** argv) {
 
+  #ifdef WIRINGPI
   std::cout << "Starting wiring pi" << std::endl;
   if (wiringPiSetup() == -1) {
     std::cout << "Error starting wiring pi" << std::endl;
@@ -117,6 +121,7 @@ int main(int argc, char** argv) {
   } else {
     for(int i = 0; i < LIGHTS; ++i) pinMode(light_pins[i], OUTPUT);
   }
+  #endif
 
     SDL_Event event;
 
@@ -243,11 +248,13 @@ int main(int argc, char** argv) {
 		//                SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H-vol);
             }
 
+			#ifdef WIRINGPI
 	    for (int i = 0; i < LIGHTS; ++i) {
 	      std::cout << i << ":" << lights[i] << " ";
 	        digitalWrite(light_pins[i], lights[i]);
 	    }
 	    std::cout << std::endl;
+		#endif
 
            /*for (int i = 0; i < LIGHTS; ++i) {
                 if (lights[i]) {
