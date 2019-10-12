@@ -13,7 +13,7 @@ include_directories(include)
 find_package(SDL2 REQUIRED)
 include_directories(lightcomposer ${SDL2_INCLUDE_DIRS})
 
-find_package(SDL2_gfx REQUIRED)
+find_package(SDL2_gfx)
 include_directories(lightcomposer ${SDL2_GFX_INCLUDE_DIRS})
 
 find_package(Boost REQUIRED)
@@ -31,6 +31,11 @@ if (WIRINGPI_LIBRARY STREQUAL "WIRINGPI_LIBRARY-NOTFOUND")
     set(WIRINGPI_LIBRARY "")
 else()
     add_definitions(-DWIRINGPI)
+endif()
+
+if (NOT SDL2_LIBRARIES STREQUAL "SDL2_GFX_LIBRARIES-NOTFOUND")
+    add_definitions(-DSDLGFX)
+else()
 endif()
 
 file(GLOB SOURCES "src/*.cpp")
