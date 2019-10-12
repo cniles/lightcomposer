@@ -25,12 +25,13 @@ include_directories(lightcomposer ${LIBAV_INCLUDE_DIRS})
 find_package(FFTW REQUIRED)
 include_directories(lightcomposer ${FFTW_INCLUDE_DIRS})
 
+find_library(WIRINGPI_LIBRARY wiringPi)
 
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(lightcompose ${SOURCES})
 
-target_link_libraries(lightcompose ${LIBAV_LIBRARIES} ${FFTW_LIBRARIES} z m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES})
+target_link_libraries(lightcompose ${LIBAV_LIBRARIES} ${FFTW_LIBRARIES} z m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES} ${WIRINGPI_LIBRARY})
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
