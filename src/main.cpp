@@ -186,7 +186,6 @@ int main(int argc, char** argv) {
 #ifdef SDLGFX
 	  SDL_RenderClear(renderer);
 #endif
-	  bool draw = false;
 	  fft_in_idx = 0;
 	  fftw_execute(p);
 
@@ -207,7 +206,13 @@ int main(int argc, char** argv) {
 	  double bands[10];
 
 	  memset(bands, 0, sizeof(bands));
-            
+
+	  /**
+	   * Iterate over FFT samples and calcuate power for each of them;
+	   * sums the power for for each frequency into an octave bin to
+	   * calculate the strength of each octave, and the total power of
+	   * the signal.
+	   */
 	  int b = 0;
 	  int band_bin_counter = 0;
 	  int b_freq = c0;
