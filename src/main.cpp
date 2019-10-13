@@ -111,9 +111,10 @@ void pixel_callback(Uint8 *stream, int desiredLen, int len) {
 
 void init_libs() {
   av_register_all();
-#define VIDEO_INIT 0
 #ifdef SDLGFX
 #define VIDEO_INIT SDL_INIT_VIDEO
+#else
+#define VIDEO_INIT 0
 #endif
   if(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER | VIDEO_INIT)) {
 	abort();
@@ -152,9 +153,6 @@ int main(int argc, char** argv) {
 										SDL_WINDOWPOS_UNDEFINED,
 										SCREEN_W, SCREEN_H,
 										SDL_WINDOW_SHOWN);
-#endif
-
-#ifdef SDLGFX
   SDL_Renderer *renderer = SDL_CreateRenderer(screen, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 #endif
 
@@ -247,6 +245,7 @@ int main(int argc, char** argv) {
 	  double s = 30.0;
 	  for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
 
+		// If out of the octave bin range, go to the next bin
 		if (b_freq < freqs[i]) {
 		  b_freq = pow(2.0, b) * c0;
 		  b++;
@@ -254,21 +253,20 @@ int main(int argc, char** argv) {
 
 		if (i > SCREEN_W) break;
 
+		// get the total power for the band
 		double q = bands[b];
-              
+
+		// 
 		double r = std::min(s, power[i] / q) / s;
 
-		int vol = power[i] / 10000;
-
 		int o = (int)(log2(freqs[i] / c0) * 12) % LIGHTS;
-
-		double x = log2(freqs[i]) / 26.0 * SCREEN_W;
-
 		if (r > threshold) {
 		  lights[o] = 0;
 		}
 
 #ifdef SDLGFX
+		int vol = power[i] / 10000;
+		double x = log2(freqs[i]) / 26.0 * SCREEN_W;
 		SDL_SetRenderDrawColor(renderer, 0, 0xFF * (1.0 - r), 0xFF*r, SDL_ALPHA_OPAQUE);
 		SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H-vol);
 #endif
