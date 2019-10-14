@@ -19,8 +19,6 @@ static int *interruptFlag;
 
 #define SDL_AUDIO_BUFFER_SIZE 1024
 
-#define FMT_16
-
 #ifdef FMT_16
 #define AV_FORMAT AV_SAMPLE_FMT_S16
 #define SDL_FORMAT AUDIO_S16
@@ -81,6 +79,13 @@ int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_siz
   }
 }
 
+/**
+ * Converts the provided data stream of stereo floats/ints to a
+ * mono-signal list of floats.
+ */
+void convert_to_float_data(Uint8 *stream_start, int len, int extra, int channels, AVSampleFormat sample_fmt) {
+}
+
 void audioCallback(void *userdata, Uint8 *stream, int len) {
     AVCodecContext *codecCtx = (AVCodecContext*)userdata;
     int len1, audio_size;
@@ -112,6 +117,8 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
     }
   
     if (len != 0) std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
+
+	convert_to_float_data(NULL, 0, 0, codecCtx->channels, codecCtx->sample_fmt);
 
     callback(streamStart, desiredLen, len);
 }
@@ -183,6 +190,8 @@ int audio_play_source(const char *url, int *interrupt, sample_callback callbackF
 
     AVCodecContext* codecCtx = get_decoder_for_stream(s->streams[streamIdx]);
     setup_sdl_audio(codecCtx);
+
+	std::cout << "Converting to: " << codecCtx->channels << " channel " << av_get_sample_fmt_name(codecCtx->sample_fmt) << std::endl;
 
     packet_queue_init(&audioq);
 

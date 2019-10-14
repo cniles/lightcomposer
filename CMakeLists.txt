@@ -10,6 +10,8 @@ enable_testing()
 
 include_directories(include)
 
+find_package(Catch2 REQUIRED)
+
 find_package(SDL2 REQUIRED)
 include_directories(lightcomposer ${SDL2_INCLUDE_DIRS})
 
@@ -41,11 +43,30 @@ else()
   message("gfx disable")
 endif()
 
-file(GLOB SOURCES "src/*.cpp")
+add_library(packet_queue OBJECT src/packet_queue.cpp)
+add_library(audio OBJECT src/audio.cpp)
 
-add_executable(lightcompose ${SOURCES})
+add_executable(lightcompose $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> src/main.cpp)
+
+if(APPLE)
+  message("Using FLT audio")
+  add_definitions(-DFMT_FLT)
+else()
+  message("Using S16 audio")
+  add_definitions(-DFMT_16)
+endif()
 
 target_link_libraries(lightcompose ${LIBAV_LIBRARIES} ${FFTW_LIBRARIES} z m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES} ${WIRINGPI_LIBRARY})
+
+
+# Tests
+add_executable(audio_test test/audio_test.cpp $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue>)
+
+target_link_libraries(audio_test Catch2::Catch2 ${LIBAV_LIBRARIES} ${SDL2_LIBRARIES})
+
+include(Catch)
+
+catch_discover_tests(audio_test)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
