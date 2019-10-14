@@ -10,12 +10,14 @@ extern "C"
     #include <libavformat/avformat.h>
     #include <libavutil/avutil.h>
     #include <libavcodec/avcodec.h>
+    #include <libswresample/swresample.h>
 }
 #endif
 
 static PacketQueue audioq;
 static sample_callback callback;
 static int *interruptFlag;
+static SwrContext *swr;
 
 #define SDL_AUDIO_BUFFER_SIZE 1024
 
@@ -46,21 +48,21 @@ AVCodecContext* get_decoder_for_stream(AVStream* stream) {
 }
 
 int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_size) {
-    static AVPacket pkt;
-    static AVFrame frame;
+  static AVPacket pkt;
+  static AVFrame frame;
 
-    int len1, data_size = 0;
+  int len1, data_size = 0;
 
   for(;;) {
-    if(avcodec_receive_frame(codecCtx, &frame) == 0) {       
-        data_size = av_samples_get_buffer_size(NULL, 
-            codecCtx->channels,
-            frame.nb_samples,
-            codecCtx->sample_fmt,
-            1);
-        assert(data_size <= buf_size);
-        memcpy(audio_buf, frame.data[0], data_size);
-        return data_size;
+    if(avcodec_receive_frame(codecCtx, &frame) == 0) {
+	  data_size = av_samples_get_buffer_size(NULL, 
+											 codecCtx->channels,
+											 frame.nb_samples,
+											 codecCtx->sample_fmt,
+											 1);
+	  assert(data_size <= buf_size);
+	  memcpy(audio_buf, frame.data[0], data_size);
+	  return data_size;
     }
     if(pkt.data)
       av_packet_unref(&pkt);
@@ -75,15 +77,36 @@ int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_siz
 
     int send_result = avcodec_send_packet(codecCtx, &pkt);
     if (send_result < 0 && send_result != AVERROR(EAGAIN))
-        return -1;
+	  return -1;
   }
 }
 
 /**
- * Converts the provided data stream of stereo floats/ints to a
- * mono-signal list of floats.
+ * Converts the provided data to FLT format using libswresample
  */
-void convert_to_float_data(Uint8 *stream_start, int len, int extra, int channels, AVSampleFormat sample_fmt) {
+void convert_to_float_data(uint8_t **stream_start, int len, AVSampleFormat in_format) {
+
+  int bytes_per_sample = av_get_bytes_per_sample(in_format); 
+
+  int nb_samples = len / bytes_per_sample;
+
+  if (len % bytes_per_sample) {
+	std::cout << "Sample data not aligned to input format!" << std::endl;
+  }
+  
+  uint8_t *output;
+  int alloc_err = av_samples_alloc(&output, NULL, 1, nb_samples, AV_SAMPLE_FMT_FLT, 0);
+
+  int out_samples = swr_convert(swr, &output, nb_samples, (const uint8_t **)stream_start, nb_samples);
+
+  for (int i = 0; i < nb_samples; ++i) {
+	std::cout << ((float*)output)[i] << " ";
+  }
+
+  std::cout << std::endl;
+  
+  av_freep(&output);
+
 }
 
 void audioCallback(void *userdata, Uint8 *stream, int len) {
@@ -97,28 +120,28 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
     static unsigned int audio_buf_size = 0;
     static unsigned int audio_buf_index = 0; // the next index to write to
     while (len > 0) {
-        if (audio_buf_index >= audio_buf_size) {
-            audio_size = audio_decode_frame(codecCtx, audio_buf, sizeof(audio_buf));
-            if (audio_size < 0) {
-                audio_buf_size = SDL_AUDIO_BUFFER_SIZE;
-                memset(audio_buf, 0, audio_buf_size);
-            } else {
-                audio_buf_size = audio_size;
-            }
-            audio_buf_index = 0;
-        }
-        len1 = audio_buf_size - audio_buf_index;
-        if (len1 > len)
-            len1 = len;
-        memcpy(stream, (uint8_t *)audio_buf + audio_buf_index, len1);
-        len -= len1;
-        stream += len1;
-        audio_buf_index += len1;
+	  if (audio_buf_index >= audio_buf_size) {
+		audio_size = audio_decode_frame(codecCtx, audio_buf, sizeof(audio_buf));
+		if (audio_size < 0) {
+		  audio_buf_size = SDL_AUDIO_BUFFER_SIZE;
+		  memset(audio_buf, 0, audio_buf_size);
+		} else {
+		  audio_buf_size = audio_size;
+		}
+		audio_buf_index = 0;
+	  }
+	  len1 = audio_buf_size - audio_buf_index;
+	  if (len1 > len)
+		len1 = len;
+	  memcpy(stream, (uint8_t *)audio_buf + audio_buf_index, len1);
+	  len -= len1;
+	  stream += len1;
+	  audio_buf_index += len1;
     }
   
     if (len != 0) std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
 
-	convert_to_float_data(NULL, 0, 0, codecCtx->channels, codecCtx->sample_fmt);
+	convert_to_float_data(&streamStart, desiredLen, codecCtx->sample_fmt);
 
     callback(streamStart, desiredLen, len);
 }
@@ -166,6 +189,19 @@ static int LoadThread(void *ptr) {
     return 0;
 }
 
+void setup_sw_resampling(AVCodecContext *codecCtx) {
+  swr = swr_alloc_set_opts(NULL,
+						   AV_CH_LAYOUT_MONO,
+						   AV_SAMPLE_FMT_FLT,
+						   44100,
+						   codecCtx->channel_layout,
+						   codecCtx->sample_fmt,
+						   codecCtx->sample_rate,
+						   0,
+						   NULL);
+  swr_init(swr);
+}
+
 int audio_play_source(const char *url, int *interrupt, sample_callback callbackFunc) {
     interruptFlag = interrupt;
     callback = callbackFunc;
@@ -189,7 +225,9 @@ int audio_play_source(const char *url, int *interrupt, sample_callback callbackF
     }
 
     AVCodecContext* codecCtx = get_decoder_for_stream(s->streams[streamIdx]);
+
     setup_sdl_audio(codecCtx);
+	setup_sw_resampling(codecCtx);
 
 	std::cout << "Converting to: " << codecCtx->channels << " channel " << av_get_sample_fmt_name(codecCtx->sample_fmt) << std::endl;
 
