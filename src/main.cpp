@@ -212,9 +212,11 @@ int main(int argc, char** argv) {
 	  int b_freq = c0;
 	  double total = 0.0;
 	  for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
+		// calculate frequency for output (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html)
+		// "the k-th output corresponds to the frequency k/n (or k/T, where T is your total sampling period)".
 		freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
 		if (b_freq < freqs[i]) {
-		  bands[b] /= (double)band_bin_counter;
+		  //bands[b] /= (double)band_bin_counter;
 		  b++;
 		  b_freq = pow(2.0, b) * c0;
 		  band_bin_counter = 0;
@@ -252,21 +254,21 @@ int main(int argc, char** argv) {
 		// get the total power for the band
 		double q = bands[b];
 
-		// 
-		double r = std::min(s, power[i] / q) / s;
-
+		double r = power[i] / q;
+		std::cout << r << " ";
 		int o = (int)(log2(freqs[i] / c0) * 12) % LIGHTS;
 		if (r > threshold) {
-		  lights[o] = 0;
+		  lights[o] = 1;
 		}
 
 #ifdef SDLGFX
-		int vol = power[i] / 10000;
+		int vol = power[i];
 		double x = log2(freqs[i]) / 26.0 * SCREEN_W;
-		SDL_SetRenderDrawColor(renderer, 0, 0xFF * (1.0 - r), 0xFF*r, SDL_ALPHA_OPAQUE);
+		SDL_SetRenderDrawColor(renderer, 0, 0xFF * std::max(0.0, (1.0 - r)), 0, SDL_ALPHA_OPAQUE);
 		SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H-vol);
 #endif
 	  }
+	  std::cout << std::endl;
 
 #ifdef WIRINGPI
 	  for (int i = 0; i < LIGHTS; ++i) {
