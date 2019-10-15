@@ -84,32 +84,27 @@ int audio_decode_frame(AVCodecContext *codecCtx, uint8_t* audio_buf, int buf_siz
 /**
  * Converts the provided data to FLT format using libswresample
  */
-void convert_to_float_data(uint8_t **stream_start, int len, AVSampleFormat in_format) {
+float *resample_to_flt(uint8_t **stream_start, int len, AVSampleFormat in_format, int channels, int *nb_samples) {
 
-  int bytes_per_sample = av_get_bytes_per_sample(in_format); 
+  int bytes_per_sample = av_get_bytes_per_sample(in_format);
 
-  int nb_samples = len / bytes_per_sample;
+  *nb_samples = swr_get_out_samples(swr, (len / channels) / bytes_per_sample);
 
   if (len % bytes_per_sample) {
-	std::cout << "Sample data not aligned to input format!" << std::endl;
+	  std::cout << "Sample data not aligned to input format!" << std::endl;
   }
   
   uint8_t *output;
-  int alloc_err = av_samples_alloc(&output, NULL, 1, nb_samples, AV_SAMPLE_FMT_FLT, 0);
-
-  int out_samples = swr_convert(swr, &output, nb_samples, (const uint8_t **)stream_start, nb_samples);
-
-  for (int i = 0; i < nb_samples; ++i) {
-	std::cout << ((float*)output)[i] << " ";
-  }
-
-  std::cout << std::endl;
   
-  av_freep(&output);
+  av_samples_alloc(&output, NULL, 1, *nb_samples, AV_SAMPLE_FMT_FLT, 0);
+  
+  int out_samples = swr_convert(swr, &output, *nb_samples, (const uint8_t **)stream_start, *nb_samples);
 
+  return (float*)output;
 }
 
 void audioCallback(void *userdata, Uint8 *stream, int len) {
+  
     AVCodecContext *codecCtx = (AVCodecContext*)userdata;
     int len1, audio_size;
 
@@ -141,9 +136,12 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
   
     if (len != 0) std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
 
-	convert_to_float_data(&streamStart, desiredLen, codecCtx->sample_fmt);
+	int nb_samples;
+	float* output = resample_to_flt(&streamStart, desiredLen, codecCtx->sample_fmt, codecCtx->channels, &nb_samples);
 
-    callback(streamStart, desiredLen, len);
+  callback(output, nb_samples);
+
+	av_freep(&output);
 }
 
 void setup_sdl_audio(AVCodecContext* codecCtx) {

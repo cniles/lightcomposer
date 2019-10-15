@@ -2,6 +2,7 @@
 #include <math.h>
 #include <algorithm>
 #include <cstdlib>
+#include <fftw3.h>
 
 #ifdef SDLGFX
 #include <SDL2_gfxPrimitives.h>
@@ -96,15 +97,10 @@ void fftw_init() {
   p = fftw_plan_dft_1d(FFT_SAMPLE_SIZE, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
 }
 
-void pixel_callback(Uint8 *stream, int desiredLen, int len) {
-  sampleset *sample = new sampleset((desiredLen + len) / 4);
-  for (int i = 0; i < desiredLen + len; i+=4) {
-	if (i+2 >= desiredLen + len) continue;
-	int16_t l_sample = *(int16_t *)&stream[i];
-	int16_t r_sample = *(int16_t *)&stream[i+2];
-	int16_t mono = (int(l_sample) + r_sample) >> 1;
-	if ((i / 4) > sample->size) continue;
-	sample->data[i / 4] = (double)mono;
+void pixel_callback(float *input, int nb_samples) {
+  sampleset *sample = new sampleset(nb_samples);
+  for (int i = 0; i < nb_samples; ++i) {
+	sample->data[i] = (double)input[i];
   }
   samples.push(sample);
 }
@@ -161,12 +157,12 @@ int main(int argc, char** argv) {
   std::cout << "Starting audio" << std::endl;
   audio_play_source(url, (int*)&quit, pixel_callback); 
 
-  Uint16 offset = 0;
   int fft_in_idx = 0;
         
   while (!quit) {
 
 	sampleset *sample;
+
 	while (fft_in_idx < FFT_SAMPLE_SIZE && samples.pop(sample)) {
 	  if (fft_in_idx < FFT_SAMPLE_SIZE) {
 		int size = std::min(sample->size, FFT_SAMPLE_SIZE - fft_in_idx);
@@ -189,7 +185,7 @@ int main(int argc, char** argv) {
 
 	  int lights[LIGHTS];
 
-	  memset(lights, 1, sizeof(lights));
+	  memset(lights, 0, sizeof(lights));
 
 #ifdef SDLGFX
 	  SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);

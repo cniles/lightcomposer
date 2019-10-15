@@ -8,7 +8,7 @@ extern "C"
 }
 #endif
 
-typedef void (*sample_callback)(Uint8*,int,int);
+typedef void (*sample_callback)(float*,int);
 
 int audio_play_source(const char *url, int *interrupt, sample_callback callback);
 
