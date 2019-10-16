@@ -9,12 +9,12 @@
 #define draw_lights _draw_lights
 #define draw_end_frame _draw_end_frame
 #else
-#define draw_octive_markers
-#define draw_init
-#define draw_begin_frame
-#define draw_freqency
-#define draw_lights
-#define draw_end_frame
+#define draw_octive_markers()
+#define draw_init()
+#define draw_begin_frame()
+#define draw_frequency(a, b, c)
+#define draw_lights(a, b)
+#define draw_end_frame()
 #endif
 
 #ifdef SDLGFX
