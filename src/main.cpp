@@ -17,6 +17,12 @@ extern "C" {
 }
 #endif
 
+#ifdef SDLGFX
+#define VIDEO_INIT SDL_INIT_VIDEO
+#else
+#define VIDEO_INIT 0
+#endif
+
 #include "audio.h"
 #include "draw.h"
 #include "music.h"
@@ -101,11 +107,6 @@ void pixel_callback(float *input, int nb_samples) {
 
 void init_libs() {
   av_register_all();
-#ifdef SDLGFX
-#define VIDEO_INIT SDL_INIT_VIDEO
-#else
-#define VIDEO_INIT 0
-#endif
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER | VIDEO_INIT)) {
     abort();
   }
@@ -187,7 +188,7 @@ int main(int argc, char **argv) {
        */
       int b = 0;
       int band_bin_counter = 0;
-      int b_freq = C0;
+      double b_freq = C0;
       double total = 0.0;
       for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
         // calculate frequency for output
