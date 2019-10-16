@@ -4,9 +4,7 @@
 #include <cstdlib>
 #include <fftw3.h>
 
-#ifdef SDLGFX
-#include <SDL2_gfxPrimitives.h>
-#endif
+#include "draw.h"
 
 #ifdef WIRINGPI
 #include <wiringPi.h>
@@ -23,12 +21,12 @@ extern "C"
 #include <unistd.h>
 #include "packet_queue.h"
 #include "audio.h"
+#include "draw.h"
+#include "music.h"
 #include <fftw3.h>
 #include <boost/lockfree/queue.hpp>
 
 const int FFT_SAMPLE_SIZE = 4096.0;
-const Uint16 SCREEN_W = 1024;
-const Uint16 SCREEN_H = 768;
 const Uint16 ZERO = 0;
 
 #define LIGHTS 8
@@ -143,14 +141,7 @@ int main(int argc, char** argv) {
   std::cout << "Init libs" << std::endl;
   init_libs();
 
-#ifdef SDLGFX
-  SDL_Window *screen = SDL_CreateWindow("LightComposer",
-										SDL_WINDOWPOS_UNDEFINED,
-										SDL_WINDOWPOS_UNDEFINED,
-										SCREEN_W, SCREEN_H,
-										SDL_WINDOW_SHOWN);
-  SDL_Renderer *renderer = SDL_CreateRenderer(screen, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-#endif
+  draw_init();
 
   std ::cout << "Creating surfaces" << std::endl;
 
@@ -177,23 +168,13 @@ int main(int argc, char** argv) {
 	}
         
 	if (fft_in_idx >= FFT_SAMPLE_SIZE) {
-#ifdef SDLGFX
-	  SDL_RenderClear(renderer);
-#endif
+	  draw_begin_frame();
 	  fft_in_idx = 0;
 	  fftw_execute(p);
 
 	  int lights[LIGHTS];
 
 	  memset(lights, 0, sizeof(lights));
-
-#ifdef SDLGFX
-	  SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
-	  SDL_Rect fill = {0, 0, SCREEN_W, SCREEN_H};
-	  SDL_RenderFillRect(renderer, &fill);
-#endif
-
-	  double c0 = 16.35;            
 
 	  double power[FFT_SAMPLE_SIZE >> 1];
 	  double freqs[FFT_SAMPLE_SIZE >> 1];
@@ -209,16 +190,15 @@ int main(int argc, char** argv) {
 	   */
 	  int b = 0;
 	  int band_bin_counter = 0;
-	  int b_freq = c0;
+	  int b_freq = C0;
 	  double total = 0.0;
 	  for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
 		// calculate frequency for output (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html)
 		// "the k-th output corresponds to the frequency k/n (or k/T, where T is your total sampling period)".
 		freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
 		if (b_freq < freqs[i]) {
-		  //bands[b] /= (double)band_bin_counter;
 		  b++;
-		  b_freq = pow(2.0, b) * c0;
+		  b_freq = pow(2.0, b) * C0;
 		  band_bin_counter = 0;
 		}
 		power[i] = sqrt(out[i][0]*out[i][0] + out[i][1]*out[i][1]);
@@ -228,47 +208,30 @@ int main(int argc, char** argv) {
 	  }
 	  total /= (FFT_SAMPLE_SIZE / 2.0);
 
-	  // Draw octave
-#ifdef SDLGFX
-	  SDL_SetRenderDrawColor(renderer, 0xFF, 0, 0, SDL_ALPHA_OPAQUE);
-	  for (int i = 0; i < 10; ++i) {
-		int freq = pow(2.0, i) * c0;
-		int x = log2(freq) / 26.0 * SCREEN_W;
-		SDL_RenderDrawLine(renderer, x, 0, x, SCREEN_H);
-	  }
-#endif
+	  draw_octive_markers();
 
 	  b = 0;
-	  b_freq = c0;
+	  b_freq = C0;
 	  double s = 30.0;
 	  for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
 
 		// If out of the octave bin range, go to the next bin
 		if (b_freq < freqs[i]) {
-		  b_freq = pow(2.0, b) * c0;
+		  b_freq = pow(2.0, b) * C0;
 		  b++;
 		}
-
-		if (i > SCREEN_W) break;
 
 		// get the total power for the band
 		double q = bands[b];
 
 		double r = power[i] / q;
-		std::cout << r << " ";
-		int o = (int)(log2(freqs[i] / c0) * 12) % LIGHTS;
+		int o = (int)(log2(freqs[i] / C0) * 12) % LIGHTS;
 		if (r > threshold) {
 		  lights[o] = 1;
 		}
-
-#ifdef SDLGFX
-		int vol = power[i];
-		double x = log2(freqs[i]) / 26.0 * SCREEN_W;
-		SDL_SetRenderDrawColor(renderer, 0, 0xFF * std::max(0.0, (1.0 - r)), 0, SDL_ALPHA_OPAQUE);
-		SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H-vol);
-#endif
+		
+		draw_frequency(freqs[i], power[i], bands[b]);
 	  }
-	  std::cout << std::endl;
 
 #ifdef WIRINGPI
 	  for (int i = 0; i < LIGHTS; ++i) {
@@ -278,19 +241,9 @@ int main(int argc, char** argv) {
 	  std::cout << std::endl;
 #endif
 
-#ifdef SDLGFX
-	  for (int i = 0; i < LIGHTS; ++i) {
-		if (lights[i]) {
-		  filledCircleColor(renderer, 50+50*i, 50, 20, 0xFFFFFFFF);
-		} else {
-		  filledCircleColor(renderer, 50+50*i, 50, 20, 0xAAAAAAFF);
-		}
-	  }
-	  SDL_RenderPresent(renderer);
-#endif
-		
+		draw_lights(lights, LIGHTS);
+		draw_end_frame();
 	}
-
 
 	SDL_PollEvent(&event);
 	switch (event.type) {
@@ -302,9 +255,7 @@ int main(int argc, char** argv) {
 	default:
 	  break;
 	}
-#ifdef SDLGFX
-	SDL_UpdateWindowSurface(screen);
-#endif
+	draw_end_frame();
   }
 
   fftw_destroy_plan(p);

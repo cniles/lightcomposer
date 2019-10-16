@@ -45,8 +45,9 @@ endif()
 
 add_library(packet_queue OBJECT src/packet_queue.cpp)
 add_library(audio OBJECT src/audio.cpp)
+add_library(draw OBJECT src/draw.cpp)
 
-add_executable(lightcompose $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> src/main.cpp)
+add_executable(lightcompose $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> $<TARGET_OBJECTS:draw> src/main.cpp)
 
 if(APPLE)
   message("Using FLT audio")
