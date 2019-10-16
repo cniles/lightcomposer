@@ -10,7 +10,7 @@ enable_testing()
 
 include_directories(include)
 
-find_package(Catch2)
+find_package(Catch2 QUIET)
 
 find_package(SDL2 REQUIRED)
 include_directories(lightcomposer ${SDL2_INCLUDE_DIRS})
