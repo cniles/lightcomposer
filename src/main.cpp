@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
 #ifdef WIRINGPI
       for (int i = 0; i < LIGHTS; ++i) {
         std::cout << i << ":" << lights[i] << " ";
-        digitalWrite(light_pins[i], lights[i]);
+        //digitalWrite(light_pins[i], lights[i]);
       }
       std::cout << std::endl;
 #endif
