@@ -10,7 +10,7 @@ enable_testing()
 
 include_directories(include)
 
-find_package(Catch2 REQUIRED)
+find_package(Catch2)
 
 find_package(SDL2 REQUIRED)
 include_directories(lightcomposer ${SDL2_INCLUDE_DIRS})
@@ -61,13 +61,12 @@ target_link_libraries(lightcompose ${LIBAV_LIBRARIES} ${FFTW_LIBRARIES} z m ${SD
 
 
 # Tests
+if (TARGET Catch2::Catch2)
 add_executable(audio_test test/audio_test.cpp $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue>)
-
-target_link_libraries(audio_test Catch2::Catch2 ${LIBAV_LIBRARIES} ${SDL2_LIBRARIES})
-
-include(Catch)
-
-catch_discover_tests(audio_test)
+  target_link_libraries(audio_test Catch2::Catch2 ${LIBAV_LIBRARIES} ${SDL2_LIBRARIES})
+  include(Catch)
+  catch_discover_tests(audio_test)
+endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
