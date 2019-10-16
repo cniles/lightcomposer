@@ -1,8 +1,8 @@
-#include <iostream>
-#include <math.h>
 #include <algorithm>
 #include <cstdlib>
 #include <fftw3.h>
+#include <iostream>
+#include <math.h>
 
 #include "draw.h"
 
@@ -12,19 +12,18 @@
 
 // Need this for CPlusPlus development with this C library
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #include <SDL.h>
 }
 #endif
 
-#include <unistd.h>
-#include "packet_queue.h"
 #include "audio.h"
 #include "draw.h"
 #include "music.h"
-#include <fftw3.h>
+#include "packet_queue.h"
 #include <boost/lockfree/queue.hpp>
+#include <fftw3.h>
+#include <unistd.h>
 
 const int FFT_SAMPLE_SIZE = 4096.0;
 const Uint16 ZERO = 0;
@@ -60,29 +59,26 @@ const Uint16 ZERO = 0;
   | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
   +-----+-----+---------+------+---+-Pi ZeroW-+---+------+---------+-----+-----+
 */
-const int light_pins[] = { 22,21,3,2,0,7,9,8, 5,6,26,27 };
+const int light_pins[] = {22, 21, 3, 2, 0, 7, 9, 8, 5, 6, 26, 27};
 
 struct sampleset {
   int size;
   double *data;
 
   sampleset(int capacity) {
-	size = capacity;
-	data = (double*)malloc(sizeof(double) * capacity);
+    size = capacity;
+    data = (double *)malloc(sizeof(double) * capacity);
   }
 
   sampleset(const sampleset &o) {
-	data = new double[o.size];
-	memcpy(data, o.data, o.size);
+    data = new double[o.size];
+    memcpy(data, o.data, o.size);
   }
 
-  ~sampleset() {
-	free(data);
-  }
-
+  ~sampleset() { free(data); }
 };
 
-boost::lockfree::queue<sampleset*> samples(128);
+boost::lockfree::queue<sampleset *> samples(128);
 
 volatile int quit = 0;
 
@@ -90,15 +86,15 @@ fftw_complex *in, *out;
 fftw_plan p;
 
 void fftw_init() {
-  in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * FFT_SAMPLE_SIZE);
-  out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * FFT_SAMPLE_SIZE);
+  in = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * FFT_SAMPLE_SIZE);
+  out = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * FFT_SAMPLE_SIZE);
   p = fftw_plan_dft_1d(FFT_SAMPLE_SIZE, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
 }
 
 void pixel_callback(float *input, int nb_samples) {
   sampleset *sample = new sampleset(nb_samples);
   for (int i = 0; i < nb_samples; ++i) {
-	sample->data[i] = (double)input[i];
+    sample->data[i] = (double)input[i];
   }
   samples.push(sample);
 }
@@ -110,12 +106,12 @@ void init_libs() {
 #else
 #define VIDEO_INIT 0
 #endif
-  if(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER | VIDEO_INIT)) {
-	abort();
+  if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER | VIDEO_INIT)) {
+    abort();
   }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 
 #ifdef WIRINGPI
   std::cout << "Starting wiring pi" << std::endl;
@@ -123,7 +119,8 @@ int main(int argc, char** argv) {
     std::cout << "Error starting wiring pi" << std::endl;
     return 1;
   } else {
-    for(int i = 0; i < LIGHTS; ++i) pinMode(light_pins[i], OUTPUT);
+    for (int i = 0; i < LIGHTS; ++i)
+      pinMode(light_pins[i], OUTPUT);
   }
 #endif
 
@@ -146,116 +143,118 @@ int main(int argc, char** argv) {
   std ::cout << "Creating surfaces" << std::endl;
 
   std::cout << "Starting audio" << std::endl;
-  audio_play_source(url, (int*)&quit, pixel_callback); 
+  audio_play_source(url, (int *)&quit, pixel_callback);
 
   int fft_in_idx = 0;
-        
+
   while (!quit) {
 
-	sampleset *sample;
+    sampleset *sample;
 
-	while (fft_in_idx < FFT_SAMPLE_SIZE && samples.pop(sample)) {
-	  if (fft_in_idx < FFT_SAMPLE_SIZE) {
-		int size = std::min(sample->size, FFT_SAMPLE_SIZE - fft_in_idx);
-		for (int i = 0; i < size; ++i) {
-		  in[fft_in_idx][0] = sample->data[i];
-		  in[fft_in_idx++][1] = 0.0;
-		}
-	  } else {
-		std::cout << "Oops! dropping samples" << std::endl;
-	  }
-	  delete sample;
-	}
-        
-	if (fft_in_idx >= FFT_SAMPLE_SIZE) {
-	  draw_begin_frame();
-	  fft_in_idx = 0;
-	  fftw_execute(p);
+    while (fft_in_idx < FFT_SAMPLE_SIZE && samples.pop(sample)) {
+      if (fft_in_idx < FFT_SAMPLE_SIZE) {
+        int size = std::min(sample->size, FFT_SAMPLE_SIZE - fft_in_idx);
+        for (int i = 0; i < size; ++i) {
+          in[fft_in_idx][0] = sample->data[i];
+          in[fft_in_idx++][1] = 0.0;
+        }
+      } else {
+        std::cout << "Oops! dropping samples" << std::endl;
+      }
+      delete sample;
+    }
 
-	  int lights[LIGHTS];
+    if (fft_in_idx >= FFT_SAMPLE_SIZE) {
+      draw_begin_frame();
+      fft_in_idx = 0;
+      fftw_execute(p);
 
-	  memset(lights, 0, sizeof(lights));
+      int lights[LIGHTS];
 
-	  double power[FFT_SAMPLE_SIZE >> 1];
-	  double freqs[FFT_SAMPLE_SIZE >> 1];
-	  double bands[10];
+      memset(lights, 0, sizeof(lights));
 
-	  memset(bands, 0, sizeof(bands));
+      double power[FFT_SAMPLE_SIZE >> 1];
+      double freqs[FFT_SAMPLE_SIZE >> 1];
+      double bands[10];
 
-	  /**
-	   * Iterate over FFT samples and calcuate power for each of them;
-	   * sums the power for for each frequency into an octave bin to
-	   * calculate the strength of each octave, and the total power of
-	   * the signal.
-	   */
-	  int b = 0;
-	  int band_bin_counter = 0;
-	  int b_freq = C0;
-	  double total = 0.0;
-	  for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
-		// calculate frequency for output (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html)
-		// "the k-th output corresponds to the frequency k/n (or k/T, where T is your total sampling period)".
-		freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
-		if (b_freq < freqs[i]) {
-		  b++;
-		  b_freq = pow(2.0, b) * C0;
-		  band_bin_counter = 0;
-		}
-		power[i] = sqrt(out[i][0]*out[i][0] + out[i][1]*out[i][1]);
-		bands[b] += power[i];
-		band_bin_counter++;
-		total += power[i];
-	  }
-	  total /= (FFT_SAMPLE_SIZE / 2.0);
+      memset(bands, 0, sizeof(bands));
 
-	  draw_octive_markers();
+      /**
+       * Iterate over FFT samples and calcuate power for each of them;
+       * sums the power for for each frequency into an octave bin to
+       * calculate the strength of each octave, and the total power of
+       * the signal.
+       */
+      int b = 0;
+      int band_bin_counter = 0;
+      int b_freq = C0;
+      double total = 0.0;
+      for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
+        // calculate frequency for output
+        // (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html) "the
+        // k-th output corresponds to the frequency k/n (or k/T, where T is your
+        // total sampling period)".
+        freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
+        if (b_freq < freqs[i]) {
+          b++;
+          b_freq = pow(2.0, b) * C0;
+          band_bin_counter = 0;
+        }
+        power[i] = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]);
+        bands[b] += power[i];
+        band_bin_counter++;
+        total += power[i];
+      }
+      total /= (FFT_SAMPLE_SIZE / 2.0);
 
-	  b = 0;
-	  b_freq = C0;
-	  double s = 30.0;
-	  for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
+      draw_octive_markers();
 
-		// If out of the octave bin range, go to the next bin
-		if (b_freq < freqs[i]) {
-		  b_freq = pow(2.0, b) * C0;
-		  b++;
-		}
+      b = 0;
+      b_freq = C0;
+      double s = 30.0;
+      for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
 
-		// get the total power for the band
-		double q = bands[b];
+        // If out of the octave bin range, go to the next bin
+        if (b_freq < freqs[i]) {
+          b_freq = pow(2.0, b) * C0;
+          b++;
+        }
 
-		double r = power[i] / q;
-		int o = (int)(log2(freqs[i] / C0) * 12) % LIGHTS;
-		if (r > threshold) {
-		  lights[o] = 1;
-		}
-		
-		draw_frequency(freqs[i], power[i], bands[b]);
-	  }
+        // get the total power for the band
+        double q = bands[b];
+
+        double r = power[i] / q;
+        int o = (int)(log2(freqs[i] / C0) * 12) % LIGHTS;
+        if (r > threshold) {
+          lights[o] = 1;
+        }
+
+        draw_frequency(freqs[i], power[i], bands[b]);
+      }
 
 #ifdef WIRINGPI
-	  for (int i = 0; i < LIGHTS; ++i) {
-		std::cout << i << ":" << lights[i] << " ";
-		digitalWrite(light_pins[i], lights[i]);
-	  }
-	  std::cout << std::endl;
+      for (int i = 0; i < LIGHTS; ++i) {
+        std::cout << i << ":" << lights[i] << " ";
+        digitalWrite(light_pins[i], lights[i]);
+      }
+      std::cout << std::endl;
 #endif
 
-		draw_lights(lights, LIGHTS);
-		draw_end_frame();
-	}
+      draw_lights(lights, LIGHTS);
+      draw_end_frame();
+    }
 
-	SDL_PollEvent(&event);
-	switch (event.type) {
-	case SDL_QUIT:
-	  quit = 1;
-	  SDL_Quit();
-	  exit(0);
-	  break;
-	default:
-	  break;
-	}
-	draw_end_frame();
+    SDL_PollEvent(&event);
+    switch (event.type) {
+    case SDL_QUIT:
+      quit = 1;
+      SDL_Quit();
+      exit(0);
+      break;
+    default:
+      break;
+    }
+    draw_end_frame();
   }
 
   fftw_destroy_plan(p);
