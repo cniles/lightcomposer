@@ -16,7 +16,6 @@ extern "C" {
 #include <SDL.h>
 }
 #endif
-
 #ifdef SDLGFX
 #define VIDEO_INIT SDL_INIT_VIDEO
 #else
@@ -34,7 +33,8 @@ extern "C" {
 const int FFT_SAMPLE_SIZE = 4096.0;
 const Uint16 ZERO = 0;
 
-#define LIGHTS 8
+#define LIGHTS 12
+#define OCTIVE_BANDS 10
 
 /*
 
@@ -112,6 +112,35 @@ void init_libs() {
   }
 }
 
+/**
+ * Iterate over FFT samples and calcuate power for each of
+ * them; sums the power for for each frequency into an octave
+ * bin to calculate the strength of each octave, and the total
+ * power of the signal.
+ */
+void calc_power(double *power, double *freqs, int *band, double *band_power,
+                int len, int band_count) {
+  int b = 0;
+  double b_freq = C0;
+  for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
+    // calculate frequency for output
+    // (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html) "the
+    // k-th output corresponds to the frequency k/n (or k/T, where T is your
+    // total sampling period)".
+    freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
+    if (b_freq < freqs[i]) {
+      b_freq = pow(2.0, ++b) * C0;
+    }
+    power[i] = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]);
+    if (b < band_count) {
+      band[i] = b;
+      band_power[b] += power[i];
+    } else {
+      band[i] = -1;
+    }
+}
+}
+
 int main(int argc, char **argv) {
 
 #ifdef WIRINGPI
@@ -167,71 +196,49 @@ int main(int argc, char **argv) {
 
     if (fft_in_idx >= FFT_SAMPLE_SIZE) {
       draw_begin_frame();
+      draw_octive_markers();
+
       fft_in_idx = 0;
       fftw_execute(p);
 
       int lights[LIGHTS];
-
       memset(lights, 0, sizeof(lights));
 
       double power[FFT_SAMPLE_SIZE >> 1];
       double freqs[FFT_SAMPLE_SIZE >> 1];
-      double bands[10];
+      int band[FFT_SAMPLE_SIZE >> 1];
+      double band_power[OCTIVE_BANDS];
+      
+      memset(band_power, 0, sizeof(double) * OCTIVE_BANDS);
 
-      memset(bands, 0, sizeof(bands));
+      calc_power(power, freqs, band, band_power, FFT_SAMPLE_SIZE >> 1,
+                 OCTIVE_BANDS);
 
-      /**
-       * Iterate over FFT samples and calcuate power for each of them;
-       * sums the power for for each frequency into an octave bin to
-       * calculate the strength of each octave, and the total power of
-       * the signal.
-       */
-      int b = 0;
-      int band_bin_counter = 0;
-      double b_freq = C0;
-      double total = 0.0;
+      int light_freq_count[LIGHTS];
+      memset(light_freq_count, 0, sizeof(light_freq_count));
       for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
-        // calculate frequency for output
-        // (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html) "the
-        // k-th output corresponds to the frequency k/n (or k/T, where T is your
-        // total sampling period)".
-        freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
-        if (b_freq < freqs[i]) {
-          b++;
-          b_freq = pow(2.0, b) * C0;
-          band_bin_counter = 0;
-        }
-        power[i] = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]);
-        bands[b] += power[i];
-        band_bin_counter++;
-        total += power[i];
-      }
-      total /= (FFT_SAMPLE_SIZE / 2.0);
-
-      draw_octive_markers();
-
-      b = 0;
-      b_freq = C0;
-      double s = 30.0;
-      for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
-
-        // If out of the octave bin range, go to the next bin
-        if (b_freq < freqs[i]) {
-          b_freq = pow(2.0, b) * C0;
-          b++;
-        }
-
         // get the total power for the band
-        double q = bands[b];
-
+        if (band[i] < 0) 
+          break;
+        double q = band_power[band[i]];
         double r = power[i] / q;
+
+        // Map the frequency back to an approximate note
         int o = (int)(log2(freqs[i] / C0) * 12) % LIGHTS;
+        
+        // if the frequency is strong compare to the rest of its octive, toggle that notes light
         if (r > threshold) {
           lights[o] = 1;
+          light_freq_count[o]++;
         }
 
-        draw_frequency(freqs[i], power[i], bands[b]);
+        draw_frequency(freqs[i], power[i], q);
       }
+
+      for (int i = 0; i < LIGHTS; ++i) {
+        std::cout << light_freq_count[i] << ", ";
+      }
+      std::cout << std::endl;
 
 #ifdef WIRINGPI
       for (int i = 0; i < LIGHTS; ++i) {

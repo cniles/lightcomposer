@@ -39,6 +39,9 @@ void _draw_frequency(double freq, double freq_power, double band_power) {
   SDL_SetRenderDrawColor(renderer, 0, 0xFF * (1.0 - freq_power / band_power), 0,
                          SDL_ALPHA_OPAQUE);
   SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H - freq_power);
+  SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF,
+                         SDL_ALPHA_OPAQUE);
+  SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H - 5);
 }
 
 void _draw_lights(int *lights, int len) {
