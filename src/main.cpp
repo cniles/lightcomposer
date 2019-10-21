@@ -30,7 +30,7 @@ extern "C" {
 #include <fftw3.h>
 #include <unistd.h>
 
-const int FFT_SAMPLE_SIZE = 4096.0;
+const int FFT_SAMPLE_SIZE = 2048.0;
 const Uint16 ZERO = 0;
 
 #define LIGHTS 12
@@ -106,7 +106,6 @@ void pixel_callback(float *input, int nb_samples) {
 }
 
 void init_libs() {
-  av_register_all();
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER | VIDEO_INIT)) {
     abort();
   }
@@ -122,7 +121,7 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
                 int len, int band_count) {
   int b = 0;
   double b_freq = C0;
-  for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
+  for (int i = 0; i < FFT_SAMPLE_SIZE>> 1; ++i) {
     // calculate frequency for output
     // (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html) "the
     // k-th output corresponds to the frequency k/n (or k/T, where T is your
@@ -138,7 +137,7 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
     } else {
       band[i] = -1;
     }
-}
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -243,10 +242,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef WIRINGPI
       for (int i = 0; i < LIGHTS; ++i) {
-        std::cout << i << ":" << lights[i] << " ";
-        //digitalWrite(light_pins[i], lights[i]);
+        digitalWrite(light_pins[i], lights[i]);
       }
-      std::cout << std::endl;
 #endif
 
       draw_lights(lights, LIGHTS);
