@@ -104,7 +104,6 @@ float *resample_to_flt(uint8_t **stream_start, int len,
 }
 
 void audioCallback(void *userdata, Uint8 *stream, int len) {
-
   AVCodecContext *codecCtx = (AVCodecContext *)userdata;
   int len1, audio_size;
 
@@ -135,8 +134,7 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
   }
 
   if (len != 0)
-    std::cerr << "We're not getting an aligned sample set for the fft"
-              << std::endl;
+    std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
 
   int nb_samples;
 
@@ -148,7 +146,18 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
   av_freep(&output);
 }
 
-void setup_sdl_audio(AVCodecContext *codecCtx) {
+void pr_sdl_audio_spec(SDL_AudioSpec spec) {
+  char* type;
+  if (SDL_AUDIO_ISFLOAT(spec.format)) {
+    type = "float";
+  } else {
+    type = "int";
+  }
+  std::cout << "Format: " << type << std::endl;  
+}
+
+
+SDL_AudioSpec setup_sdl_audio(AVCodecContext *codecCtx) {
   SDL_AudioSpec desiredSpec;
   SDL_AudioSpec actualSpec;
 
@@ -165,6 +174,8 @@ void setup_sdl_audio(AVCodecContext *codecCtx) {
     std::cout << "SDL_OpenAudio: " << SDL_GetError() << std::endl;
     abort();
   }
+
+  return actualSpec;
 }
 
 int get_stream_idx(AVFormatContext *s) {
@@ -196,13 +207,14 @@ void setup_sw_resampling(AVCodecContext *codecCtx) {
                            codecCtx->channel_layout, codecCtx->sample_fmt,
                            codecCtx->sample_rate, 0, NULL);
   swr_init(swr);
+  std::cout << "Initialized sw resampling" << std::endl;
 }
 
 int audio_play_source(const char *url, int *interrupt,
                       sample_callback callbackFunc) {
   interruptFlag = interrupt;
   callback = callbackFunc;
-
+  SDL_AudioSpec actual_spec;
   AVFormatContext *s = NULL;
 
   if (avformat_open_input(&s, url, NULL, NULL) != 0) {
@@ -213,7 +225,7 @@ int audio_play_source(const char *url, int *interrupt,
     return -1;
   }
 
-  av_dump_format(s, 0, url, 0);
+  //av_dump_format(s, 0, url, 0);
 
   int streamIdx = get_stream_idx(s);
 
@@ -223,7 +235,10 @@ int audio_play_source(const char *url, int *interrupt,
 
   AVCodecContext *codecCtx = get_decoder_for_stream(s->streams[streamIdx]);
 
-  setup_sdl_audio(codecCtx);
+  actual_spec = setup_sdl_audio(codecCtx);
+
+  pr_sdl_audio_spec(actual_spec);
+
   setup_sw_resampling(codecCtx);
 
   std::cout << "Converting to: " << codecCtx->channels << " channel "
@@ -232,6 +247,8 @@ int audio_play_source(const char *url, int *interrupt,
   packet_queue_init(&audioq);
 
   SDL_PauseAudio(0);
+  std::cout << "Playing audio" << std::endl;
+
   SDL_CreateThread(LoadThread, "AudioFileLoadThread", (void *)s);
 
   return 0;

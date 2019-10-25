@@ -141,7 +141,7 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
 
 #ifdef WIRINGPI
   std::cout << "Starting wiring pi" << std::endl;
@@ -177,6 +177,7 @@ int main(int argc, char **argv) {
 
   int fft_in_idx = 0;
 
+  std::cout << "Starting updates" << std::endl;
   while (!quit) {
 
     sampleset *sample;
@@ -264,6 +265,8 @@ int main(int argc, char **argv) {
     }
     draw_end_frame();
   }
+
+  std::cout << "Terminating" << std::endl;
 
   fftw_destroy_plan(p);
   fftw_free(in);

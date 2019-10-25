@@ -18,7 +18,7 @@ include_directories(lightcomposer ${SDL2_INCLUDE_DIRS})
 find_package(SDL2_gfx)
 
 find_package(Boost REQUIRED)
-include_directories(lightcomposer ${BOOST_INCLUDE_DIRS})
+include_directories(lightcomposer ${Boost_INCLUDE_DIRS})
 
 find_package(LIBAV REQUIRED)
 include_directories(lightcomposer ${LIBAV_INCLUDE_DIRS})
