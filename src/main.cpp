@@ -25,7 +25,6 @@ extern "C" {
 #include "audio.h"
 #include "draw.h"
 #include "music.h"
-#include "packet_queue.h"
 #include <boost/lockfree/queue.hpp>
 #include <fftw3.h>
 #include <unistd.h>
@@ -118,10 +117,13 @@ void init_libs() {
  * power of the signal.
  */
 void calc_power(double *power, double *freqs, int *band, double *band_power,
-                int len, int band_count) {
+                int len, int band_count, double *max) {
   int b = 0;
   double b_freq = C0;
-  for (int i = 0; i < FFT_SAMPLE_SIZE>> 1; ++i) {
+
+  *max = 0.0;
+
+  for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
     // calculate frequency for output
     // (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html) "the
     // k-th output corresponds to the frequency k/n (or k/T, where T is your
@@ -131,6 +133,7 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
       b_freq = pow(2.0, ++b) * C0;
     }
     power[i] = sqrt(out[i][0] * out[i][0] + out[i][1] * out[i][1]);
+    *max = fmax(*max, power[i]);
     if (b < band_count) {
       band[i] = b;
       band_power[b] += power[i];
@@ -157,7 +160,7 @@ int main(int argc, char *argv[]) {
 
   const char *url = argv[1];
 
-  const float threshold = atof(argv[2]);
+  const double threshold = atof(argv[2]);
 
   std::cout << "Playing file " << url << std::endl;
 
@@ -176,7 +179,8 @@ int main(int argc, char *argv[]) {
 
   int fft_in_idx = 0;
 
-  std::cout << "Starting updates" << std::endl;
+  double max;
+
   while (!quit) {
 
     sampleset *sample;
@@ -208,26 +212,28 @@ int main(int argc, char *argv[]) {
       double freqs[FFT_SAMPLE_SIZE >> 1];
       int band[FFT_SAMPLE_SIZE >> 1];
       double band_power[OCTIVE_BANDS];
-      
+
       memset(band_power, 0, sizeof(double) * OCTIVE_BANDS);
 
       calc_power(power, freqs, band, band_power, FFT_SAMPLE_SIZE >> 1,
-                 OCTIVE_BANDS);
+                 OCTIVE_BANDS, &max);
 
       int light_freq_count[LIGHTS];
       memset(light_freq_count, 0, sizeof(light_freq_count));
       for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
         // get the total power for the band
-        if (band[i] < 0) 
+        if (band[i] < 0)
           break;
         double q = band_power[band[i]];
         double r = power[i] / q;
 
         // Map the frequency back to an approximate note
-        int o = (int)(log2(freqs[i] / C0) * 12) % LIGHTS;
-        
-        // if the frequency is strong compare to the rest of its octive, toggle that notes light
-        if (r > threshold) {
+        double note = (log2(freqs[i] / C0) * 12.0);
+        int o = (int)note % LIGHTS;
+
+        // if the frequency is strong compare to the rest of its octive, toggle
+        // that notes light
+        if (power[i] > 5 && power[i] > max * threshold) {
           lights[o] = 1;
           light_freq_count[o]++;
         }
@@ -260,7 +266,6 @@ int main(int argc, char *argv[]) {
     default:
       break;
     }
-    draw_end_frame();
   }
 
   std::cout << "Terminating" << std::endl;
