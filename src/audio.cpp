@@ -211,6 +211,10 @@ void setup_sw_resampling(AVCodecContext *codecCtx) {
   std::cout << "Initialized sw resampling" << std::endl;
 }
 
+int audio_queue_empty() {
+  return packet_queue_empty(&audioq);
+}
+
 int audio_play_source(const char *url, int *interrupt,
                       sample_callback callbackFunc,
 		      bool *packet_queue_loaded) {

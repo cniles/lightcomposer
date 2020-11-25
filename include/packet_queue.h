@@ -20,5 +20,6 @@ struct PacketQueue {
 int packet_queue_put(PacketQueue *q, AVPacket *pkt);
 void packet_queue_init(PacketQueue *q);
 int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *interrupt);
+int packet_queue_empty(PacketQueue *q);
 
 #endif

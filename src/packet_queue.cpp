@@ -67,3 +67,11 @@ int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *interrupt) {
     SDL_UnlockMutex(q->mutex);
     return ret;
 }
+
+int packet_queue_empty(PacketQueue *q) {
+  int nb_packets = -1;
+  SDL_LockMutex(q->mutex);
+  nb_packets = q->nb_packets;
+  SDL_UnlockMutex(q->mutex);
+  return nb_packets == 0;
+}
