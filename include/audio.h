@@ -1,11 +1,10 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
-#include <libavformat/avformat.h>
-
 #ifdef __cplusplus
 extern "C" {
 #include <SDL.h>
+#include <libavformat/avformat.h>
 }
 #endif
 
