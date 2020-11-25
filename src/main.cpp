@@ -177,7 +177,11 @@ int main(int argc, char *argv[]) {
   std ::cout << "Creating surfaces" << std::endl;
 
   std::cout << "Starting audio" << std::endl;
-  audio_play_source(url, (int *)&quit, pixel_callback, &packet_queue_loaded);
+  if (audio_play_source(url, (int *)&quit, pixel_callback, &packet_queue_loaded)) {
+    std::cout << "audio setup failed" << std::endl;
+    return(1);
+  }
+  std::cout << "Starting audio returned" << std::endl;
 
   int fft_in_idx = 0;
 

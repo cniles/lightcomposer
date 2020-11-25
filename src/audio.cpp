@@ -220,10 +220,12 @@ int audio_play_source(const char *url, int *interrupt,
   AVFormatContext *s = NULL;
 
   if (avformat_open_input(&s, url, NULL, NULL) != 0) {
+    std::cout << "avformat_open_input failed" << std::endl;
     return -1;
   }
 
   if (avformat_find_stream_info(s, NULL) < 0) {
+    std::cout << "avformat_find_stream_info failed" << std::endl;
     return -1;
   }
 
@@ -232,6 +234,7 @@ int audio_play_source(const char *url, int *interrupt,
   int streamIdx = get_stream_idx(s);
 
   if (streamIdx == -1) {
+    std::cout << "Could not find audio stream index" << std::endl;
     return -1;
   }
 
