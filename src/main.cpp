@@ -105,6 +105,7 @@ void pixel_callback(float *input, int nb_samples) {
 }
 
 void init_libs() {
+  av_register_all();
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_TIMER | VIDEO_INIT)) {
     abort();
   }
@@ -204,6 +205,11 @@ int main(int argc, char *argv[]) {
       delete sample;
     }
 
+    if (audio_queue_empty() && packet_queue_loaded) {
+      // all packets have been added to the queue and we're no longer getting data, must be finished.
+      quit = 1;
+    }
+
     if (fft_in_idx >= FFT_SAMPLE_SIZE) {
       draw_begin_frame();
       draw_octive_markers();
@@ -260,11 +266,6 @@ int main(int argc, char *argv[]) {
 
       draw_lights(lights, LIGHTS);
       draw_end_frame();
-    }
-
-    if (fft_in_idx == 0 && packet_queue_loaded) {
-      // all packets have been added to the queue and we're no longer getting data, must be finished.
-      quit = 1;
     }
 
     SDL_PollEvent(&event);
