@@ -7,7 +7,6 @@
 #ifdef __cplusplus
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libswresample/swresample.h>
 }
@@ -188,16 +187,18 @@ int get_stream_idx(AVFormatContext *s) {
 }
 
 static int LoadThread(void *ptr) {
-  AVFormatContext *s = (AVFormatContext *)ptr;
+  load_context *ld_ctx = (load_context *)ptr;
   AVPacket packet;
-  int idx = get_stream_idx(s);
-  while (av_read_frame(s, &packet) >= 0) {
+  int idx = get_stream_idx(ld_ctx->fmt_ctx);
+  while (av_read_frame(ld_ctx->fmt_ctx, &packet) >= 0) {
     if (packet.stream_index == idx) {
       packet_queue_put(&audioq, &packet);
     } else {
       av_packet_unref(&packet);
     }
   }
+  *(ld_ctx->packet_queue_loaded) = true;
+  delete ld_ctx;
   std::cout << "All packets added to queue" << std::endl;
   return 0;
 }
@@ -211,7 +212,8 @@ void setup_sw_resampling(AVCodecContext *codecCtx) {
 }
 
 int audio_play_source(const char *url, int *interrupt,
-                      sample_callback callbackFunc) {
+                      sample_callback callbackFunc,
+		      bool *packet_queue_loaded) {
   interruptFlag = interrupt;
   callback = callbackFunc;
   SDL_AudioSpec actual_spec;
@@ -249,7 +251,12 @@ int audio_play_source(const char *url, int *interrupt,
   SDL_PauseAudio(0);
   std::cout << "Playing audio" << std::endl;
 
-  SDL_CreateThread(LoadThread, "AudioFileLoadThread", (void *)s);
+  load_context *ld_ctx = new load_context();
+
+  ld_ctx->packet_queue_loaded = packet_queue_loaded;
+  ld_ctx->fmt_ctx = s;
+
+  SDL_CreateThread(LoadThread, "AudioFileLoadThread", (void *)ld_ctx);
 
   return 0;
 }

@@ -162,6 +162,8 @@ int main(int argc, char *argv[]) {
 
   const double threshold = atof(argv[2]);
 
+  bool packet_queue_loaded = false;
+
   std::cout << "Playing file " << url << std::endl;
 
   std::cout << "Starting fftw" << std::endl;
@@ -175,7 +177,7 @@ int main(int argc, char *argv[]) {
   std ::cout << "Creating surfaces" << std::endl;
 
   std::cout << "Starting audio" << std::endl;
-  audio_play_source(url, (int *)&quit, pixel_callback);
+  audio_play_source(url, (int *)&quit, pixel_callback, &packet_queue_loaded);
 
   int fft_in_idx = 0;
 
@@ -254,6 +256,11 @@ int main(int argc, char *argv[]) {
 
       draw_lights(lights, LIGHTS);
       draw_end_frame();
+    }
+
+    if (fft_in_idx == 0 && packet_queue_loaded) {
+      // all packets have been added to the queue and we're no longer getting data, must be finished.
+      quit = 1;
     }
 
     SDL_PollEvent(&event);

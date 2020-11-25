@@ -12,5 +12,4 @@ compile_commands.json
 git add .giti   
 *.cmake
 DartConfiguration.tcl
-
 *.mp3
