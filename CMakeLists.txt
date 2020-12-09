@@ -13,18 +13,18 @@ include_directories(include)
 find_package(Catch2 QUIET)
 
 find_package(SDL2 REQUIRED)
-include_directories(lightcomposer ${SDL2_INCLUDE_DIRS})
+include_directories(${SDL2_INCLUDE_DIRS})
 
 find_package(SDL2_gfx)
 
 find_package(Boost REQUIRED)
-include_directories(lightcomposer ${Boost_INCLUDE_DIRS})
+include_directories(${Boost_INCLUDE_DIRS})
 
 find_package(LIBAV REQUIRED)
-include_directories(lightcomposer ${LIBAV_INCLUDE_DIRS})
+include_directories(${LIBAV_INCLUDE_DIRS})
 
 find_package(FFTW REQUIRED)
-include_directories(lightcomposer ${FFTW_INCLUDE_DIRS})
+include_directories(${FFTW_INCLUDE_DIRS})
 
 find_library(WIRINGPI_LIBRARY wiringPi)
 
@@ -47,7 +47,7 @@ add_library(packet_queue OBJECT src/packet_queue.cpp)
 add_library(audio OBJECT src/audio.cpp)
 add_library(draw OBJECT src/draw.cpp)
 
-add_executable(lightcompose $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> $<TARGET_OBJECTS:draw> src/main.cpp)
+add_executable(lightcomposer $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> $<TARGET_OBJECTS:draw> src/main.cpp)
 
 if(APPLE)
   message("Using FLT audio")
@@ -57,7 +57,7 @@ else()
   add_definitions(-DFMT_16)
 endif()
 
-target_link_libraries(lightcompose ${LIBAV_LIBRARIES} ${FFTW_LIBRARIES} z m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES} ${WIRINGPI_LIBRARY})
+target_link_libraries(lightcomposer atomic ${LIBAV_LIBRARIES} ${FFTW_LIBRARIES} z m ${SDL2_LIBRARIES} ${SDL2_GFX_LIBRARIES} ${WIRINGPI_LIBRARY})
 
 
 # Tests
