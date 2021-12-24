@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
   while (!quit) {
 
     sampleset *sample;
-
+    
     while (fft_in_idx < FFT_SAMPLE_SIZE && samples.pop(sample)) {
       if (fft_in_idx < FFT_SAMPLE_SIZE) {
         int size = std::min(sample->size, FFT_SAMPLE_SIZE - fft_in_idx);
@@ -253,10 +253,11 @@ int main(int argc, char *argv[]) {
         draw_frequency(freqs[i], power[i], q);
       }
 
-      for (int i = 0; i < LIGHTS; ++i) {
-        std::cout << light_freq_count[i] << ", ";
-      }
-      std::cout << std::endl;
+      // This will dump the light states to stdout.
+      // for (int i = 0; i < LIGHTS; ++i) {
+      //   std::cout << light_freq_count[i] << ", ";
+      // }
+      // std::cout << std::endl;
 
 #ifdef WIRINGPI
       for (int i = 0; i < LIGHTS; ++i) {
