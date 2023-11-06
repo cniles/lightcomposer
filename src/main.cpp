@@ -96,7 +96,7 @@ void fftw_init() {
   p = fftw_plan_dft_1d(FFT_SAMPLE_SIZE, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
 }
 
-void pixel_callback(float *input, int nb_samples) {
+void fft_callback(float *input, int nb_samples) {
   sampleset *sample = new sampleset(nb_samples);
   for (int i = 0; i < nb_samples; ++i) {
     sample->data[i] = (double)input[i];
@@ -113,13 +113,13 @@ void init_libs() {
 
 /**
  * Iterate over FFT samples and calcuate power for each of
- * them; sums the power for for each frequency into an octave
+ * them; sums the power for each frequency into an octave
  * bin to calculate the strength of each octave, and the total
  * power of the signal.
  */
 void calc_power(double *power, double *freqs, int *band, double *band_power,
                 int len, int band_count, double *max) {
-  int b = 0;
+  int b = 0; 
   double b_freq = C0;
 
   *max = 0.0;
@@ -127,6 +127,7 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
   for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
     // calculate frequency for output
     // (http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html) "the
+
     // k-th output corresponds to the frequency k/n (or k/T, where T is your
     // total sampling period)".
     freqs[i] = (double)i / ((double)FFT_SAMPLE_SIZE / 44100.0);
@@ -178,10 +179,11 @@ int main(int argc, char *argv[]) {
   std ::cout << "Creating surfaces" << std::endl;
 
   std::cout << "Starting audio" << std::endl;
-  if (audio_play_source(url, (int *)&quit, pixel_callback, &packet_queue_loaded)) {
+  if (audio_play_source(url, fft_callback, &packet_queue_loaded)) {
     std::cout << "audio setup failed" << std::endl;
     return(1);
   }
+
   std::cout << "Starting audio returned" << std::endl;
 
   int fft_in_idx = 0;
@@ -195,6 +197,7 @@ int main(int argc, char *argv[]) {
     while (fft_in_idx < FFT_SAMPLE_SIZE && samples.pop(sample)) {
       if (fft_in_idx < FFT_SAMPLE_SIZE) {
         int size = std::min(sample->size, FFT_SAMPLE_SIZE - fft_in_idx);
+        // copy the fft samples out of the sampleset into our FFT input array of complex numbers.
         for (int i = 0; i < size; ++i) {
           in[fft_in_idx][0] = sample->data[i];
           in[fft_in_idx++][1] = 0.0;
@@ -205,11 +208,12 @@ int main(int argc, char *argv[]) {
       delete sample;
     }
 
-    if (audio_queue_empty() && packet_queue_loaded) {
+    if (samples.empty() && audio_queue_empty() && packet_queue_loaded) {
       // all packets have been added to the queue and we're no longer getting data, must be finished.
       quit = 1;
     }
 
+    // have we read enough samples?
     if (fft_in_idx >= FFT_SAMPLE_SIZE) {
       draw_begin_frame();
       draw_octive_markers();

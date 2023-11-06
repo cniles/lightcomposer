@@ -3,6 +3,7 @@
 
 #include "audio.h"
 #include "packet_queue.h"
+#include "sample_queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,8 +14,8 @@ extern "C" {
 #endif
 
 static PacketQueue audioq;
+static SampleQueue sampleq;
 static sample_callback callback;
-static int *interruptFlag;
 static SwrContext *swr;
 
 #define SDL_AUDIO_BUFFER_SIZE 1024
@@ -63,11 +64,7 @@ int audio_decode_frame(AVCodecContext *codecCtx, uint8_t *audio_buf,
     if (pkt.data)
       av_packet_unref(&pkt);
 
-    if (*interruptFlag) {
-      return -1;
-    }
-
-    if (packet_queue_get(&audioq, &pkt, 1, interruptFlag) < 0) {
+    if (packet_queue_get(&audioq, &pkt, 1) < 0) {
       return -1;
     }
 
@@ -102,7 +99,7 @@ float *resample_to_flt(uint8_t **stream_start, int len,
   return (float *)output;
 }
 
-void audioCallback(void *userdata, Uint8 *stream, int len) {
+int decode_stream(void *userdata, Uint8 *stream, int len) {
   AVCodecContext *codecCtx = (AVCodecContext *)userdata;
   int len1, audio_size;
 
@@ -112,6 +109,7 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
   static uint8_t audio_buf[(192000 * 3) / 2];
   static unsigned int audio_buf_size = 0;
   static unsigned int audio_buf_index = 0; // the next index to write to
+
   while (len > 0) {
     if (audio_buf_index >= audio_buf_size) {
       audio_size = audio_decode_frame(codecCtx, audio_buf, sizeof(audio_buf));
@@ -135,18 +133,41 @@ void audioCallback(void *userdata, Uint8 *stream, int len) {
   if (len != 0)
     std::cerr << "We're not getting an aligned sample set for the fft" << std::endl;
 
-  int nb_samples;
+  return audio_size < 0;
+}
 
-  float *output = resample_to_flt(&streamStart, desiredLen, codecCtx->sample_fmt,
-                      codecCtx->channels, &nb_samples);
+static int DecodeThread(void *userdata) {
+  AVCodecContext *codecCtx = (AVCodecContext *)userdata;
+  bool done = false;
 
-  callback(output, nb_samples);
+  while (!done) {
+    Uint8 *stream = new Uint8[2048];
 
-  av_freep(&output);
+    done = decode_stream(userdata, stream, 2048) && packet_queue_empty(&audioq) && audioq.closed;
+
+    sample_queue_push(sampleq, stream);
+
+    int nb_samples;
+    float *output = resample_to_flt(&stream, 2048, codecCtx->sample_fmt, codecCtx->channels, &nb_samples);
+
+    callback(output, nb_samples);
+
+    av_freep(&output);
+  }
+
+  std::cout << "Done decoding" << std::endl;
+
+  return 0;
+}
+
+void audio_callback(void *userdata, Uint8 *stream, int len) {
+  Uint8 *samples = sample_queue_pop(sampleq);
+  memcpy(stream, samples, len);
+  delete samples;
 }
 
 void pr_sdl_audio_spec(SDL_AudioSpec spec) {
-  char* type;
+  const char* type;
   if (SDL_AUDIO_ISFLOAT(spec.format)) {
     type = "float";
   } else {
@@ -165,7 +186,7 @@ SDL_AudioSpec setup_sdl_audio(AVCodecContext *codecCtx) {
   desiredSpec.channels = codecCtx->channels;
   desiredSpec.silence = 0;
   desiredSpec.samples = SDL_AUDIO_BUFFER_SIZE;
-  desiredSpec.callback = audioCallback;
+  desiredSpec.callback = audio_callback;
   desiredSpec.userdata = codecCtx;
 
   std::cout << "Opening SDL audio" << std::endl;
@@ -179,6 +200,13 @@ SDL_AudioSpec setup_sdl_audio(AVCodecContext *codecCtx) {
 
 int get_stream_idx(AVFormatContext *s) {
   for (int i = 0; i < s->nb_streams; ++i) {
+    AVMediaType media_type = s->streams[i]->codecpar->codec_type;
+    if (media_type != AVMEDIA_TYPE_UNKNOWN) {
+      std::cout << "Codec string: " << media_type << " : " << av_get_media_type_string(media_type) << std::endl;
+    } else {
+      std::cout << "Unknown codec" << std::endl;
+    }
+    
     if (s->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
       return i;
     }
@@ -199,6 +227,7 @@ static int LoadThread(void *ptr) {
   }
   *(ld_ctx->packet_queue_loaded) = true;
   delete ld_ctx;
+  packet_queue_close(&audioq);
   std::cout << "All packets added to queue" << std::endl;
   return 0;
 }
@@ -212,13 +241,10 @@ void setup_sw_resampling(AVCodecContext *codecCtx) {
 }
 
 int audio_queue_empty() {
-  return packet_queue_empty(&audioq);
+  return sample_queue_empty(sampleq) && packet_queue_empty(&audioq);
 }
 
-int audio_play_source(const char *url, int *interrupt,
-                      sample_callback callbackFunc,
-		      bool *packet_queue_loaded) {
-  interruptFlag = interrupt;
+int audio_play_source(const char *url, sample_callback callbackFunc, bool *packet_queue_loaded) {
   callback = callbackFunc;
   SDL_AudioSpec actual_spec;
   AVFormatContext *s = NULL;
@@ -233,7 +259,7 @@ int audio_play_source(const char *url, int *interrupt,
     return -1;
   }
 
-  //av_dump_format(s, 0, url, 0);
+  av_dump_format(s, 0, url, 0);
 
   int streamIdx = get_stream_idx(s);
 
@@ -254,6 +280,7 @@ int audio_play_source(const char *url, int *interrupt,
             << av_get_sample_fmt_name(codecCtx->sample_fmt) << std::endl;
 
   packet_queue_init(&audioq);
+  sample_queue_init(sampleq);
 
   SDL_PauseAudio(0);
   std::cout << "Playing audio" << std::endl;
@@ -264,6 +291,7 @@ int audio_play_source(const char *url, int *interrupt,
   ld_ctx->fmt_ctx = s;
 
   SDL_CreateThread(LoadThread, "AudioFileLoadThread", (void *)ld_ctx);
+  SDL_CreateThread(DecodeThread, "DecodeAudioThread", (void *)codecCtx);
 
   return 0;
 }

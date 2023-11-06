@@ -4,6 +4,14 @@ void packet_queue_init(PacketQueue *q) {
     memset(q, 0, sizeof(PacketQueue));
     q->mutex = SDL_CreateMutex();
     q->cond = SDL_CreateCond();
+    q->closed = false;
+}
+
+void packet_queue_close(PacketQueue *q) {
+    SDL_LockMutex(q->mutex);
+    q->closed = true;
+    SDL_CondSignal(q->cond);
+    SDL_UnlockMutex(q->mutex);
 }
 
 int packet_queue_put(PacketQueue *q, AVPacket *pkt) {
@@ -13,6 +21,7 @@ int packet_queue_put(PacketQueue *q, AVPacket *pkt) {
     if (!pkt1) {
         return -1;
     }
+
     pkt1->pkt = *pkt;
     pkt1->next = NULL;
 
@@ -33,17 +42,13 @@ int packet_queue_put(PacketQueue *q, AVPacket *pkt) {
     return 0;    
 }
 
-int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *interrupt) {
+int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block) {
     AVPacketList *pkt1;
     int ret;
 
     SDL_LockMutex(q->mutex);
 
     for(;;) {
-        if (*interrupt) {
-            ret = -1;
-            break;
-        }
         pkt1 = q->first_pkt;
 
         if (pkt1) {
@@ -59,6 +64,9 @@ int packet_queue_get(PacketQueue *q, AVPacket *pkt, int block, int *interrupt) {
             break;
         } else if (!block) {
             ret = 0;
+            break;
+        } else if(q->closed) {
+            ret = -1;
             break;
         } else {
             SDL_CondWait(q->cond, q->mutex);
