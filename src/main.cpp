@@ -3,6 +3,7 @@
 #include <fftw3.h>
 #include <iostream>
 #include <math.h>
+#include <chrono>
 
 #include "draw.h"
 
@@ -29,7 +30,7 @@ extern "C" {
 #include <fftw3.h>
 #include <unistd.h>
 
-const int FFT_SAMPLE_SIZE = 2048.0;
+const int FFT_SAMPLE_SIZE = 882;
 const Uint16 ZERO = 0;
 
 #define LIGHTS 12
@@ -145,6 +146,16 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
   }
 }
 
+long millis_since_epoch() {
+  auto t_s = std::chrono::system_clock::now().time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(t_s).count();
+}
+
+long next_half_second() {
+  long m_s = millis_since_epoch();  
+  return m_s + (1000 - (m_s % 500));
+}
+
 int main(int argc, char *argv[]) {
 
 #ifdef WIRINGPI
@@ -186,9 +197,12 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Starting audio returned" << std::endl;
 
+
   int fft_in_idx = 0;
 
   double max;
+
+  int beets = 0;
 
   while (!quit) {
 
@@ -236,7 +250,7 @@ int main(int argc, char *argv[]) {
 
       int light_freq_count[LIGHTS];
       memset(light_freq_count, 0, sizeof(light_freq_count));
-      for (int i = 0; i<FFT_SAMPLE_SIZE>> 1; ++i) {
+      for (int i = 0; i < FFT_SAMPLE_SIZE >> 1; ++i) {
         // get the total power for the band
         if (band[i] < 0)
           break;
@@ -257,11 +271,15 @@ int main(int argc, char *argv[]) {
         draw_frequency(freqs[i], power[i], q);
       }
 
+      int offset = (beets * 2048) % 44100;
+
       // This will dump the light states to stdout.
       // for (int i = 0; i < LIGHTS; ++i) {
       //   std::cout << light_freq_count[i] << ", ";
       // }
-      // std::cout << std::endl;
+      // std::cout << endl;
+      
+      beets++;
 
 #ifdef WIRINGPI
       for (int i = 0; i < LIGHTS; ++i) {
