@@ -17,6 +17,6 @@ struct load_context {
 
 int audio_queue_empty();
 
-int audio_play_source(const char *url, sample_callback callback, bool *packet_queue_loaded);
+int audio_play_source(const char *url, sample_callback callback, bool *packet_queue_loaded, long start_time);
 
 #endif

@@ -3,7 +3,7 @@
 #include <fftw3.h>
 #include <iostream>
 #include <math.h>
-#include <chrono>
+#include "mstime.h"
 
 #include "draw.h"
 
@@ -146,17 +146,11 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
   }
 }
 
-long millis_since_epoch() {
-  auto t_s = std::chrono::system_clock::now().time_since_epoch();
-  return std::chrono::duration_cast<std::chrono::milliseconds>(t_s).count();
-}
-
-long next_half_second() {
-  long m_s = millis_since_epoch();  
-  return m_s + (1000 - (m_s % 500));
-}
-
 int main(int argc, char *argv[]) {
+
+  long start_time = next_half_second();
+
+  std::cout << "Starting music at " << start_time << std::endl;
 
 #ifdef WIRINGPI
   std::cout << "Starting wiring pi" << std::endl;
@@ -190,7 +184,7 @@ int main(int argc, char *argv[]) {
   std ::cout << "Creating surfaces" << std::endl;
 
   std::cout << "Starting audio" << std::endl;
-  if (audio_play_source(url, fft_callback, &packet_queue_loaded)) {
+  if (audio_play_source(url, fft_callback, &packet_queue_loaded, start_time)) {
     std::cout << "audio setup failed" << std::endl;
     return(1);
   }

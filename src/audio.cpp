@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <iostream>
 
+#include "mstime.h"
 #include "audio.h"
 #include "packet_queue.h"
 #include "sample_queue.h"
@@ -160,8 +161,26 @@ static int DecodeThread(void *userdata) {
   return 0;
 }
 
+struct audio_callback_context {
+  long start_time;
+  Uint8 started = 0;
+};
+
 void audio_callback(void *userdata, Uint8 *stream, int len) {
+  audio_callback_context *ctx= (audio_callback_context*)userdata;
+
+  if (ctx->started == 0) {
+    long delay = ctx->start_time - millis_since_epoch();
+
+    if (delay > 0) {
+      SDL_Delay(delay);
+    }
+
+    ctx->started = 1;
+  }
+ 
   Uint8 *samples = sample_queue_pop(sampleq);
+  
   memcpy(stream, samples, len);
   delete samples;
 }
@@ -177,9 +196,13 @@ void pr_sdl_audio_spec(SDL_AudioSpec spec) {
 }
 
 
-SDL_AudioSpec setup_sdl_audio(AVCodecContext *codecCtx) {
+SDL_AudioSpec setup_sdl_audio(AVCodecContext *codecCtx, long start_time) {
   SDL_AudioSpec desiredSpec;
   SDL_AudioSpec actualSpec;
+
+  audio_callback_context *ctx = new audio_callback_context();
+  ctx->start_time = start_time;
+  ctx->started = 0;
 
   desiredSpec.freq = codecCtx->sample_rate;
   desiredSpec.format = SDL_FORMAT;
@@ -187,8 +210,8 @@ SDL_AudioSpec setup_sdl_audio(AVCodecContext *codecCtx) {
   desiredSpec.silence = 0;
   desiredSpec.samples = SDL_AUDIO_BUFFER_SIZE;
   desiredSpec.callback = audio_callback;
-  desiredSpec.userdata = codecCtx;
-
+  desiredSpec.userdata = (void*)ctx;
+  
   std::cout << "Opening SDL audio" << std::endl;
   if (SDL_OpenAudio(&desiredSpec, &actualSpec) < 0) {
     std::cout << "SDL_OpenAudio: " << SDL_GetError() << std::endl;
@@ -244,7 +267,7 @@ int audio_queue_empty() {
   return sample_queue_empty(sampleq) && packet_queue_empty(&audioq);
 }
 
-int audio_play_source(const char *url, sample_callback callbackFunc, bool *packet_queue_loaded) {
+int audio_play_source(const char *url, sample_callback callbackFunc, bool *packet_queue_loaded, long start_time) {
   callback = callbackFunc;
   SDL_AudioSpec actual_spec;
   AVFormatContext *s = NULL;
@@ -270,7 +293,7 @@ int audio_play_source(const char *url, sample_callback callbackFunc, bool *packe
 
   AVCodecContext *codecCtx = get_decoder_for_stream(s->streams[streamIdx]);
 
-  actual_spec = setup_sdl_audio(codecCtx);
+  actual_spec = setup_sdl_audio(codecCtx, start_time);
 
   pr_sdl_audio_spec(actual_spec);
 
