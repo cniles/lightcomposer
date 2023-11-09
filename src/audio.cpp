@@ -4,7 +4,7 @@
 #include "mstime.h"
 #include "audio.h"
 #include "packet_queue.h"
-#include "sample_queue.h"
+#include "blocking_queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 static PacketQueue audioq;
-static SampleQueue sampleq;
+static BlockingQueue<Uint8*> sampleq;
 static sample_callback callback;
 static SwrContext *swr;
 
@@ -146,7 +146,7 @@ static int DecodeThread(void *userdata) {
 
     done = decode_stream(userdata, stream, 2048) && packet_queue_empty(&audioq) && audioq.closed;
 
-    sample_queue_push(sampleq, stream);
+    sampleq.push(stream);
 
     int nb_samples;
     float *output = resample_to_flt(&stream, 2048, codecCtx->sample_fmt, codecCtx->channels, &nb_samples);
@@ -179,7 +179,7 @@ void audio_callback(void *userdata, Uint8 *stream, int len) {
     ctx->started = 1;
   }
  
-  Uint8 *samples = sample_queue_pop(sampleq);
+  Uint8 *samples = sampleq.pop();
   
   memcpy(stream, samples, len);
   delete samples;
@@ -264,7 +264,7 @@ void setup_sw_resampling(AVCodecContext *codecCtx) {
 }
 
 int audio_queue_empty() {
-  return sample_queue_empty(sampleq) && packet_queue_empty(&audioq);
+  return sampleq.empty() && packet_queue_empty(&audioq);
 }
 
 int audio_play_source(const char *url, sample_callback callbackFunc, bool *packet_queue_loaded, long start_time) {
@@ -303,7 +303,6 @@ int audio_play_source(const char *url, sample_callback callbackFunc, bool *packe
             << av_get_sample_fmt_name(codecCtx->sample_fmt) << std::endl;
 
   packet_queue_init(&audioq);
-  sample_queue_init(sampleq);
 
   SDL_PauseAudio(0);
   std::cout << "Playing audio" << std::endl;

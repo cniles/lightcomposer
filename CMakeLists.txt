@@ -39,12 +39,11 @@ else()
 endif()
 
 add_library(packet_queue OBJECT src/packet_queue.cpp)
-add_library(sample_queue OBJECT src/sample_queue.cpp)
 add_library(audio OBJECT src/audio.cpp)
 add_library(draw OBJECT src/draw.cpp)
 add_library(mstime OBJECT src/mstime.cpp)
 
-add_executable(lightcomposer $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> $<TARGET_OBJECTS:draw> $<TARGET_OBJECTS:sample_queue>  $<TARGET_OBJECTS:mstime> src/main.cpp)
+add_executable(lightcomposer $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> $<TARGET_OBJECTS:draw> $<TARGET_OBJECTS:mstime> src/main.cpp)
 
 if(APPLE)
   message("Using FLT audio")

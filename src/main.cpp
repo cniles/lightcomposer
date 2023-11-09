@@ -30,7 +30,9 @@ extern "C" {
 #include <fftw3.h>
 #include <unistd.h>
 
+const int SAMPLE_RATE = 44100;
 const int FFT_SAMPLE_SIZE = 882;
+const int N = SAMPLE_RATE / FFT_SAMPLE_SIZE;
 const Uint16 ZERO = 0;
 
 #define LIGHTS 12
@@ -191,13 +193,17 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Starting audio returned" << std::endl;
 
-
   int fft_in_idx = 0;
 
   double max;
 
   int beats = 0;
+  long next_broadcast = start_time - 500;
+  Uint32 lights_buffer[N];
+  Uint32 lights_buffer_idx;
 
+  memset(&lights_buffer, 0, sizeof(lights_buffer));
+    
   while (!quit) {
 
     sampleset *sample;
@@ -229,9 +235,7 @@ int main(int argc, char *argv[]) {
       fft_in_idx = 0;
       fftw_execute(p);
 
-      int lights[LIGHTS];
-      memset(lights, 0, sizeof(lights));
-
+      Uint32 lights = 0;
       double power[FFT_SAMPLE_SIZE >> 1];
       double freqs[FFT_SAMPLE_SIZE >> 1];
       int band[FFT_SAMPLE_SIZE >> 1];
@@ -255,34 +259,49 @@ int main(int argc, char *argv[]) {
         double note = (log2(freqs[i] / C0) * 12.0);
         int o = (int)note % LIGHTS;
 
-        // if the frequency is strong compare to the rest of its octave, toggle
+        // if the frequency is strong compared to the rest of its octave, toggle
         // that notes light
         if (power[i] > 5 && power[i] > max * threshold) {
-          lights[o] = 1;
+          lights |= 1 << o;
           light_freq_count[o]++;
         }
 
         draw_frequency(freqs[i], power[i], q);
       }
 
-      int offset = (beats * 2048) % 44100;
+      int offset = (beats * FFT_SAMPLE_SIZE) % SAMPLE_RATE;
 
       // This will dump the light states to stdout.
       // for (int i = 0; i < LIGHTS; ++i) {
-      //   std::cout << light_freq_count[i] << ", ";
+      //   int state = (lights >> i) & 1;
+      //   std::cout << state << ", ";
       // }
-      // std::cout << endl;
+      // std::cout << offset / 44100.0;  
+      // std::cout << std::endl;
+
+      lights_buffer[lights_buffer_idx] = lights;
+      lights_buffer_idx++;
       
       beats++;
 
-#ifdef WIRINGPI
-      for (int i = 0; i < LIGHTS; ++i) {
-        digitalWrite(light_pins[i], lights[i]);
-      }
-#endif
-
       draw_lights(lights, LIGHTS);
       draw_end_frame();
+    }
+
+    if (lights_buffer_idx >= N) {
+      // wait until next_broadcast elapses
+      long delay = next_broadcast - millis_since_epoch();
+
+      if (delay > 0) {
+        SDL_Delay(delay);
+      }
+      std::cout << "Broadcasting next chunk of lights" << std::endl;
+
+      memcpy(lights_buffer, lights_buffer + (N/2), (N/2));
+
+      next_broadcast += 500;
+
+      lights_buffer_idx = N / 2;
     }
 
     SDL_PollEvent(&event);
