@@ -34,7 +34,7 @@ const int FFT_SAMPLE_SIZE = 882;
 const Uint16 ZERO = 0;
 
 #define LIGHTS 12
-#define OCTIVE_BANDS 10
+#define OCTAVE_BANDS 10
 
 /*
 
@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
 
   double max;
 
-  int beets = 0;
+  int beats = 0;
 
   while (!quit) {
 
@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
     // have we read enough samples?
     if (fft_in_idx >= FFT_SAMPLE_SIZE) {
       draw_begin_frame();
-      draw_octive_markers();
+      draw_octave_markers();
 
       fft_in_idx = 0;
       fftw_execute(p);
@@ -241,12 +241,12 @@ int main(int argc, char *argv[]) {
       double power[FFT_SAMPLE_SIZE >> 1];
       double freqs[FFT_SAMPLE_SIZE >> 1];
       int band[FFT_SAMPLE_SIZE >> 1];
-      double band_power[OCTIVE_BANDS];
+      double band_power[OCTAVE_BANDS];
 
-      memset(band_power, 0, sizeof(double) * OCTIVE_BANDS);
+      memset(band_power, 0, sizeof(double) * OCTAVE_BANDS);
 
       calc_power(power, freqs, band, band_power, FFT_SAMPLE_SIZE >> 1,
-                 OCTIVE_BANDS, &max);
+                 OCTAVE_BANDS, &max);
 
       int light_freq_count[LIGHTS];
       memset(light_freq_count, 0, sizeof(light_freq_count));
@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
         double note = (log2(freqs[i] / C0) * 12.0);
         int o = (int)note % LIGHTS;
 
-        // if the frequency is strong compare to the rest of its octive, toggle
+        // if the frequency is strong compare to the rest of its octave, toggle
         // that notes light
         if (power[i] > 5 && power[i] > max * threshold) {
           lights[o] = 1;
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
         draw_frequency(freqs[i], power[i], q);
       }
 
-      int offset = (beets * 2048) % 44100;
+      int offset = (beats * 2048) % 44100;
 
       // This will dump the light states to stdout.
       // for (int i = 0; i < LIGHTS; ++i) {
@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
       // }
       // std::cout << endl;
       
-      beets++;
+      beats++;
 
 #ifdef WIRINGPI
       for (int i = 0; i < LIGHTS; ++i) {

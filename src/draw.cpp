@@ -11,7 +11,7 @@ const Uint16 SCREEN_H = 768;
 static SDL_Renderer *renderer = NULL;
 static SDL_Window *screen = NULL;
 
-void _draw_octive_markers() {
+void _draw_octave_markers() {
   SDL_SetRenderDrawColor(renderer, 0xFF, 0, 0, SDL_ALPHA_OPAQUE);
   for (int i = 0; i < 10; ++i) {
     int freq = pow(2.0, i) * C0;
