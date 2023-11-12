@@ -22,7 +22,7 @@ void _draw_octave_markers();
 void _draw_init();
 void _draw_begin_frame();
 void _draw_frequency(double freq, double freq_power, double band_power);
-void _draw_lights(int *lights, int len);
+void _draw_lights(Uint32 lights, int len);
 void _draw_end_frame();
 #endif
 

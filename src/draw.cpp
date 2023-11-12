@@ -1,6 +1,10 @@
-#include "draw.h"
-
 #ifdef SDLGFX
+
+extern "C" {
+  #include <SDL.h>
+}
+
+#include "draw.h"
 
 #include "music.h"
 #include <SDL2_gfxPrimitives.h>
@@ -44,9 +48,10 @@ void _draw_frequency(double freq, double freq_power, double band_power) {
   SDL_RenderDrawLine(renderer, x, SCREEN_H, x, SCREEN_H - 5);
 }
 
-void _draw_lights(int *lights, int len) {
+void _draw_lights(Uint32 lights, int len) {
   for (int i = 0; i < len; ++i) {
-    if (lights[i]) {
+    int light = (lights >> i) & 1;
+    if (light) {
       filledCircleColor(renderer, 50 + 50 * i, 50, 20, 0xFFFFFFFF);
     } else {
       filledCircleColor(renderer, 50 + 50 * i, 50, 20, 0xAAAAAAFF);

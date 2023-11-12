@@ -17,6 +17,7 @@
 extern "C" {
 #include <SDL.h>
 }
+#include "draw.h"
 #endif
 #ifdef SDLGFX
 #define VIDEO_INIT SDL_INIT_VIDEO
