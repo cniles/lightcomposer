@@ -32,6 +32,8 @@ void BlockingQueue<T>::push(T item) {
 
   list.push_back(item);
 
+  SDL_CondSignal(cond);
+
   SDL_UnlockMutex(mutex);
 }
 

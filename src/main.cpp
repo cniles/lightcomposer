@@ -4,8 +4,9 @@
 #include <iostream>
 #include <math.h>
 #include "mstime.h"
-
+#include "blocking_queue.h"
 #include "draw.h"
+#include "netlights.h"
 
 #ifdef WIRINGPI
 #include <wiringPi.h>
@@ -149,6 +150,7 @@ void calc_power(double *power, double *freqs, int *band, double *band_power,
 }
 
 int main(int argc, char *argv[]) {
+  BlockingQueue<Uint32*> lights_queue;
 
   long start_time = next_half_second();
 
@@ -191,6 +193,8 @@ int main(int argc, char *argv[]) {
     return(1);
   }
 
+  start_netlights(&lights_queue, N);
+   
   std::cout << "Starting audio returned" << std::endl;
 
   int fft_in_idx = 0;
@@ -288,15 +292,26 @@ int main(int argc, char *argv[]) {
       draw_end_frame();
     }
 
-    if (lights_buffer_idx >= N) {
+    // std::cout << lights_buffer_idx << std::endl;
+
+    if (lights_buffer_idx >= N || audio_queue_empty()) {
       // wait until next_broadcast elapses
       long delay = next_broadcast - millis_since_epoch();
 
       if (delay > 0) {
         SDL_Delay(delay);
       }
+
       std::cout << "Broadcasting next chunk of lights" << std::endl;
 
+      // push our 200 samples onto the blocking queue (after copying into a new block)
+      // TBD: after popping from queue
+      {
+        Uint32 *copy = new Uint32[N];
+        memcpy(lights_buffer, copy, N);
+        lights_queue.push(copy);
+      }
+      
       memcpy(lights_buffer, lights_buffer + (N/2), (N/2));
 
       next_broadcast += 500;
