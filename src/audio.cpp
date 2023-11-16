@@ -178,11 +178,14 @@ void audio_callback(void *userdata, Uint8 *stream, int len) {
 
     ctx->started = 1;
   }
- 
-  Uint8 *samples = sampleq.pop();
+
+  Uint8 *samples;
+
+  if(sampleq.pop(&samples) > 0) {
+    memcpy(stream, samples, len);
+    delete samples;
+  }
   
-  memcpy(stream, samples, len);
-  delete samples;
 }
 
 void pr_sdl_audio_spec(SDL_AudioSpec spec) {

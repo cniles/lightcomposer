@@ -11,15 +11,14 @@ int BroadcastThread(void *userdata) {
   netlights_ctx *ctx = (netlights_ctx*)userdata;
   std::cout << "Broadcast thread" << std::endl;
 
-  while (true) {
-    Uint32 *lights = ctx->lightsq->pop();
-    std::cout << "Pop lights" << std::endl;
+  Uint32 *lights;
+  while (ctx->lightsq->pop(&lights) >= 0) {
     delete lights;
   }
+
+  return 0;
 }
 
 void netlights_init(netlights_ctx *ctx) {
-  SDL_Thread *thread = SDL_CreateThread(BroadcastThread, "BroadcastThread", (void*)ctx);
-
-  SDL_WaitThread(thread, NULL);
+  SDL_DetachThread(SDL_CreateThread(BroadcastThread, "BroadcastThread", (void*)ctx));
 }
