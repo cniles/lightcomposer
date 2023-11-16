@@ -3,6 +3,8 @@
 #include <fftw3.h>
 #include <iostream>
 #include <math.h>
+
+#include "sampleset.h"
 #include "mstime.h"
 #include "blocking_queue.h"
 #include "draw.h"
@@ -15,7 +17,7 @@
 // Need this for CPlusPlus development with this C library
 #ifdef __cplusplus
 extern "C" {
-#include <SDL.h>
+  #include <SDL.h>
 }
 #include "draw.h"
 #endif
@@ -70,23 +72,6 @@ const Uint16 ZERO = 0;
   +-----+-----+---------+------+---+-Pi ZeroW-+---+------+---------+-----+-----+
 */
 const int light_pins[] = {22, 21, 3, 2, 0, 7, 9, 8, 5, 6, 26, 27};
-
-struct sampleset {
-  int size;
-  double *data;
-
-  sampleset(int capacity) {
-    size = capacity;
-    data = (double *)malloc(sizeof(double) * capacity);
-  }
-
-  sampleset(const sampleset &o) {
-    data = new double[o.size];
-    memcpy(data, o.data, o.size);
-  }
-
-  ~sampleset() { free(data); }
-};
 
 boost::lockfree::queue<sampleset *> samples(128);
 
