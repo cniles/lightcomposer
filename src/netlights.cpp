@@ -1,35 +1,25 @@
-#include "blocking_queue.h"
 #include <iostream>
+#include "blocking_queue.h"
+#include "netlights.h"
 
 extern "C" {
   #include <SDL.h>
+  #include <SDL_thread.h>
 }
 
-struct broadcast_context {
-  int n;
-  BlockingQueue<Uint32*> *queue;
-};
-
 int BroadcastThread(void *userdata) {
-  broadcast_context *ctx = (broadcast_context*)userdata;
+  netlights_ctx *ctx = (netlights_ctx*)userdata;
   std::cout << "Broadcast thread" << std::endl;
 
   while (true) {
-    Uint32 *lights = ctx->queue->pop();
+    Uint32 *lights = ctx->lightsq->pop();
     std::cout << "Pop lights" << std::endl;
     delete lights;
   }
-
-  delete ctx;
 }
 
-void start_netlights(BlockingQueue<Uint32*> *lightsq, int n) {
-  std::cout << "Hello netlights" << std::endl;
+void netlights_init(netlights_ctx *ctx) {
+  SDL_Thread *thread = SDL_CreateThread(BroadcastThread, "BroadcastThread", (void*)ctx);
 
-  broadcast_context *ctx = new broadcast_context();
-
-  ctx->n = n;
-  ctx->queue = lightsq;
-
-  SDL_CreateThread(BroadcastThread, "BroadcastThread", (void*)ctx);
+  SDL_WaitThread(thread, NULL);
 }

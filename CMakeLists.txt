@@ -23,6 +23,8 @@ include_directories(${FFTW_INCLUDE_DIRS})
 
 find_library(WIRINGPI_LIBRARY wiringPi)
 
+find_package(Catch2 3 REQUIRED)
+
 if (WIRINGPI_LIBRARY STREQUAL "WIRINGPI_LIBRARY-NOTFOUND")
     set(WIRINGPI_LIBRARY "")
 else()
@@ -60,3 +62,6 @@ set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 
 include(CPack)
+
+add_executable(netlights_test src/netlights_test.cpp src/netlights.cpp)
+target_link_libraries(netlights_test PRIVATE Catch2::Catch2WithMain ${SDL2_LIBRARIES} pthread)

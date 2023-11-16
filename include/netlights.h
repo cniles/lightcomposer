@@ -3,6 +3,11 @@
 
 #include "blocking_queue.h"
 
-void start_netlights(BlockingQueue<Uint32*> *lightsq, int n);
+struct netlights_ctx {
+  BlockingQueue<Uint32*> *lightsq;
+  int n;
+};
+
+void netlights_init(netlights_ctx *ctx);
 
 #endif

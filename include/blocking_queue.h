@@ -12,8 +12,8 @@ struct BlockingQueue {
   SDL_mutex *mutex;
   SDL_cond *cond;
   std::list<T> list;
-
-  BlockingQueue();  
+  ~BlockingQueue();
+  BlockingQueue();
   void push(T item);
   T pop();
   void close();
@@ -56,8 +56,6 @@ T BlockingQueue<T>::pop() {
 
 template <class T>
 void BlockingQueue<T>::close() {
-  SDL_DestroyCond(cond);
-  SDL_DestroyMutex(mutex);
 }
 
 template <class T>
@@ -66,6 +64,12 @@ bool BlockingQueue<T>::empty() {
   bool empty = list.empty();
   SDL_UnlockMutex(mutex);
   return empty;
+}
+
+template <class T>
+BlockingQueue<T>::~BlockingQueue() {
+  SDL_DestroyCond(cond);
+  SDL_DestroyMutex(mutex);
 }
 
 #endif

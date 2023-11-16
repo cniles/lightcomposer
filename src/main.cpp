@@ -194,7 +194,12 @@ int main(int argc, char *argv[]) {
     return(1);
   }
 
-  start_netlights(&lights_queue, N);
+  netlights_ctx nl_ctx;
+
+  nl_ctx.lightsq = &lights_queue;
+  nl_ctx.n = N;
+
+  netlights_init(&nl_ctx);
    
   std::cout << "Starting audio returned" << std::endl;
 
