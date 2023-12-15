@@ -1,3 +1,7 @@
+[language-server.cpp-lsp]
+command = "clangd-11"
+args = ["--compile-commands-dir=build"]
+
 [[language]]
 name = "cpp"
-language-server = { command = "clangd", args=["--compile-commands-dir=build"]}
+language-servers = [ { name = "cpp-lsp" } ]
