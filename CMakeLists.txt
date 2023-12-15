@@ -45,6 +45,7 @@ add_library(audio OBJECT src/audio.cpp)
 add_library(draw OBJECT src/draw.cpp)
 add_library(mstime OBJECT src/mstime.cpp)
 add_library(netlights OBJECT src/netlights.cpp)
+add_library(listener OBJECT src/listener.cpp)
 
 add_executable(lightcomposer $<TARGET_OBJECTS:audio> $<TARGET_OBJECTS:packet_queue> $<TARGET_OBJECTS:draw> $<TARGET_OBJECTS:mstime> $<TARGET_OBJECTS:netlights> src/main.cpp)
 
@@ -64,4 +65,4 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 include(CPack)
 
 add_executable(netlights_test src/netlights_test.cpp src/netlights.cpp)
-target_link_libraries(netlights_test PRIVATE Catch2::Catch2WithMain ${SDL2_LIBRARIES} pthread)
+target_link_libraries(netlights_test PRIVATE Catch2::Catch2WithMain $<TARGET_OBJECTS:listener> ${SDL2_LIBRARIES} pthread)
