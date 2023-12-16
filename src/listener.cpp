@@ -33,7 +33,7 @@ void bind_and_listen(SDL_cond *ready_cond, sockaddr_in *sin) {
   opt_val.imr_multiaddr = sin->sin_addr;
   opt_val.imr_interface.s_addr = htonl(INADDR_ANY);
 
-  if (setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &opt_val, sizeof(ip_mreqn)) < 0) {
+  if (setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &opt_val, sizeof(opt_val)) < 0) {
     std::cout << "setsockopt failed: IP_ADD_MEMBERSHIP " << errno << std::endl;
     return;
   }
